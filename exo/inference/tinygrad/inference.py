@@ -177,7 +177,8 @@ def build_transformer(model_path: Path, shard: Shard, model_size="8B", device=No
       "norm_eps": config.get('rms_norm_eps', 1e-6),
       "rope_theta": config.get('rope_theta', 10000000),
       "hidden_dim": config.get('intermediate_size', 8192),
-      "use_qk_norm": config.get('use_qk_norm', True)
+      "use_qk_norm": config.get('use_qk_norm', True),
+      "head_dim": config.get('head_dim', None)  # Explicit head_dim from Qwen3 config
     }
 
     model = Qwen3MoETransformer(**args, linear=nn.Linear, max_context=2048, jit=True, shard=shard)

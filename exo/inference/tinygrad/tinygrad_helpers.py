@@ -1,4 +1,3 @@
-# MANUAL TIMESTAMP FOR COMPACT: 2025-10-22 20:00:00 UTC
 from tinygrad.nn.state import safe_load, torch_load
 from tinygrad import Tensor
 from pathlib import Path

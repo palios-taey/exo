@@ -20,6 +20,61 @@ from exo.inference.tinygrad.models.llama import (
 from exo.inference.shard import Shard
 
 
+class Qwen3Attention:
+    """
+    Qwen3-specific Attention with explicit head_dim support.
+    Unlike LLaMA (head_dim = dim // n_heads), Qwen3 uses explicit head_dim from config.
+    """
+    def __init__(self, dim, n_heads, n_kv_heads, head_dim, max_context, linear=nn.Linear):
+        self.n_heads = n_heads
+        self.n_kv_heads = n_kv_heads if n_kv_heads is not None else n_heads
+        self.head_dim = head_dim  # Explicit head_dim from config (e.g., 128)
+        self.n_rep = self.n_heads // self.n_kv_heads
+        self.max_context = max_context
+
+        # Qwen3: Q/K/V project from hidden_size (dim) to n_heads * head_dim
+        # Example: 2048 → 32 * 128 = 4096
+        self.wq = linear(dim, self.n_heads * self.head_dim, bias=False)
+        self.wk = linear(dim, self.n_kv_heads * self.head_dim, bias=False)
+        self.wv = linear(dim, self.n_kv_heads * self.head_dim, bias=False)
+        # Output projects back: n_heads * head_dim → hidden_size
+        self.wo = linear(self.n_heads * self.head_dim, dim, bias=False)
+
+    def __call__(self, x: Tensor, start_pos: Union[Variable, int], freqs_cis: Tensor, mask: Optional[Tensor], cache: Optional[Tensor]=None) -> Tensor:
+        # Reuse LLaMA attention logic (identical forward pass)
+        xq, xk, xv = self.wq(x), self.wk(x), self.wv(x)
+
+        xq = xq.reshape(xq.shape[0], xq.shape[1], self.n_heads, self.head_dim)
+        xk = xk.reshape(xk.shape[0], xk.shape[1], self.n_kv_heads, self.head_dim)
+        xv = xv.reshape(xv.shape[0], xv.shape[1], self.n_kv_heads, self.head_dim)
+
+        xq, xk = apply_rotary_emb(xq, xk, freqs_cis)
+        bsz, seqlen, _, _ = xq.shape
+
+        if cache is not None:
+            # update the cache
+            assert xk.dtype == xv.dtype == cache.dtype, f"{xk.dtype=}, {xv.dtype=}, {cache.dtype=}"
+            if isinstance(cache, Tensor):
+                keys = cache[0:bsz, start_pos:start_pos+seqlen].assign(xk)
+                values = cache[bsz:2*bsz, start_pos:start_pos+seqlen].assign(xv)
+            else:
+                keys, values = cache
+                keys = keys[0:bsz, start_pos:start_pos+seqlen].assign(xk)
+                values = values[0:bsz, start_pos:start_pos+seqlen].assign(xv)
+        else:
+            keys, values = xk, xv
+
+        # Expand KV for multi-query attention
+        keys, values = repeat_kv(keys, self.n_rep), repeat_kv(values, self.n_rep)
+
+        # Compute attention
+        xq, keys = xq.transpose(1, 2), keys.transpose(1, 2)
+        attn = xq.scaled_dot_product_attention(keys, values.transpose(1, 2), mask).transpose(1, 2)
+
+        # Output projection
+        return self.wo(attn.reshape(bsz, seqlen, -1))
+
+
 class MoEFeedForward:
     """
     Mixture of Experts FeedForward layer with top-k routing
@@ -159,7 +214,7 @@ class Qwen3MoETransformerBlock:
     def __init__(self, dim: int, hidden_dim: int, n_heads: int, n_kv_heads: int,
                  norm_eps: float, max_context: int, num_experts: int,
                  num_experts_per_tok: int, moe_intermediate_size: int,
-                 use_qk_norm: bool = False, linear=nn.Linear):
+                 use_qk_norm: bool = False, head_dim: int = None, linear=nn.Linear):
         """
         Args:
             dim: Model dimension (hidden_size)
@@ -172,10 +227,15 @@ class Qwen3MoETransformerBlock:
             num_experts_per_tok: Number of experts to activate per token
             moe_intermediate_size: Hidden dimension of each expert FFN
             use_qk_norm: Whether to apply normalization to Q and K projections
+            head_dim: Explicit head dimension (if None, calculated as dim // n_heads)
             linear: Linear layer constructor
         """
-        # Attention layer (same as LLaMA)
-        self.attention = Attention(dim, n_heads, n_kv_heads, max_context, linear)
+        # Qwen3 uses explicit head_dim, not derived from hidden_size
+        if head_dim is None:
+            head_dim = dim // n_heads
+
+        # Attention layer with Qwen3-specific head_dim handling
+        self.attention = Qwen3Attention(dim, n_heads, n_kv_heads, head_dim, max_context, linear)
 
         # MoE FeedForward instead of standard FFN
         self.feed_forward = MoEFeedForward(
@@ -250,6 +310,7 @@ class Qwen3MoETransformer:
         rope_scaling: Optional[Dict[str, float]] = None,
         tie_word_embeddings=False,
         use_qk_norm: bool = False,
+        head_dim: int = None,
     ):
         """
         Args:
@@ -290,6 +351,7 @@ class Qwen3MoETransformer:
                 num_experts_per_tok=num_experts_per_tok,
                 moe_intermediate_size=moe_intermediate_size,
                 use_qk_norm=use_qk_norm,
+                head_dim=head_dim,
                 linear=linear
             )
             for _ in range(n_layers)
@@ -577,10 +639,15 @@ def convert_from_huggingface_qwen(weights: Dict[str, Tensor], model: Qwen3MoETra
         v = v.to(Device.DEFAULT)
 
         # Apply permutation to Q and K projections for correct attention
-        if "model.layers" in k:
+        # Skip FP8 scale_inv tensors (they have shape (n_heads, dim) which breaks permutation)
+        if "model.layers" in k and "scale_inv" not in k:
             if "q_proj" in k:
                 print(f"DEBUG: Permuting Q projection {k} with shape {v.shape}, n_heads={n_heads}")
-                v = permute(v, n_heads)
+                # Check if shape is compatible with permutation (need at least n_heads * 2 in first dim)
+                if v.shape[0] < n_heads * 2:
+                    print(f"WARNING: Skipping permute for {k} - shape {v.shape} too small for n_heads={n_heads}")
+                else:
+                    v = permute(v, n_heads)
             elif "k_proj" in k:
                 print(f"DEBUG: Permuting K projection {k} with shape {v.shape}, n_kv_heads={n_kv_heads}")
                 if v.shape[0] < n_kv_heads * 2:
