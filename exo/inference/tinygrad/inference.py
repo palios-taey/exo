@@ -19,15 +19,40 @@ import ctypes
 # NOTE: This REPLACES the NVRTC monkey-patch above by using NVRTC directly
 # in the two-stage compilation pipeline.
 
-sys.path.insert(0, '/home/mira/exo/agents/solutions/agent_9')
+# ============================================================================
+# CRITICAL FIX: PTX Version for Blackwell (sm_110)
+# ============================================================================
+# Problem: tinygrad's PTXCompiler uses PTX 7.8 for sm_110, but ptxas requires 9.0
+# Evidence: "PTX .version 7.8 does not support .target sm_110" (ptxas error)
+# Solution: Monkey-patch PTXCompiler.compile() to use PTX 9.0 for sm_110+
+# ============================================================================
 
 try:
-    from nvptx_compiler_v2 import NVPTXCompilerV2
     import tinygrad.runtime.support.compiler_cuda as cuda_compiler
-    cuda_compiler.NVPTXCompiler = NVPTXCompilerV2
-    print('[NVPTX FIX] Using NVPTXCompilerV2 for CUDA 13.0', file=sys.stderr)
+    original_ptx_compile = cuda_compiler.PTXCompiler.compile
+
+    def patched_ptx_compile(self, src: str) -> bytes:
+        """Fixed PTX version selection for Blackwell"""
+        ver = int(self.arch[3:])  # Extract version from "sm_110" -> 110
+
+        # Use PTX 9.0 for sm_110+ (Blackwell), 8.7 for sm_120+, 7.8 for sm_89+, 7.5 default
+        if ver >= 110:
+            ptx_version = "9.0"
+        elif ver >= 120:
+            ptx_version = "8.7"
+        elif ver >= 89:
+            ptx_version = "7.8"
+        else:
+            ptx_version = "7.5"
+
+        result = src.replace("TARGET", self.arch).replace("VERSION", ptx_version).encode()
+        print(f'[PTX VERSION FIX] arch={self.arch} (ver={ver}) → PTX {ptx_version}', file=sys.stderr)
+        return result
+
+    cuda_compiler.PTXCompiler.compile = patched_ptx_compile
+    print('[PTX VERSION FIX] Patched PTXCompiler for Blackwell sm_110 support', file=sys.stderr)
 except Exception as e:
-    print(f'[NVPTX FIX] WARNING: Failed to apply fix: {e}', file=sys.stderr)
+    print(f'[PTX VERSION FIX] WARNING: Failed to patch PTXCompiler: {e}', file=sys.stderr)
 
 import json
 import os
@@ -48,7 +73,28 @@ from .losses import length_masked_ce_loss
 from collections import OrderedDict
 import asyncio
 from typing import Optional
-Tensor.no_grad = True 
+Tensor.no_grad = True
+
+# ============================================================================
+# BLACKWELL DEVICE FORCING: Set CUDA as default BEFORE any operations
+# ============================================================================
+# Problem: Tinygrad defaults to CPU during model weight loading operations
+# Evidence: ops_cpu.py, --target=aarch64 (ARM), Device[p.device] chooses CPU
+# Solution: Force Device.DEFAULT to CUDA:0 immediately after imports
+#
+# This must happen BEFORE any Tensor operations or model loading
+# ============================================================================
+device_env = os.getenv("DEVICE", "").upper()
+if device_env in ["CUDA", "GPU", "NV"]:
+    try:
+        # Test if CUDA device is available
+        cuda_device = Device["CUDA:0"]
+        # Force CUDA as default device
+        Device.DEFAULT = "CUDA:0"
+        print(f"[BLACKWELL DEVICE FORCE] Device.DEFAULT = CUDA:0 (from DEVICE={device_env})", file=sys.stderr)
+    except Exception as e:
+        print(f"[BLACKWELL DEVICE FORCE] WARNING: CUDA:0 not available: {e}", file=sys.stderr)
+        print(f"[BLACKWELL DEVICE FORCE] Falling back to automatic device selection", file=sys.stderr) 
 # default settings
 TEMPERATURE = int(os.getenv("TEMPERATURE", 0.85))
 TOP_K = 25
