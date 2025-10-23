@@ -1,3 +1,4 @@
+# MANUAL TIMESTAMP FOR COMPACT: 2025-10-22 20:00:00 UTC
 import sys
 import platform
 import subprocess
@@ -29,7 +30,7 @@ install_requires = [
   "transformers==4.46.3",
   "uuid==1.30",
   "uvloop==0.21.0",
-  "tinygrad @ git+https://github.com/tinygrad/tinygrad.git@ec120ce6b9ce8e4ff4b5692566a683ef240e8bc8",
+  "tinygrad @ git+https://github.com/tinygrad/tinygrad.git@v0.11.0",
 ]
 
 extras_require = {
