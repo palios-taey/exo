@@ -317,7 +317,7 @@ def fix_bf16(weights: Dict[Any, Tensor]):
   if Device.DEFAULT == "CLANG":
     # TODO: without casting to float16, 70B llama OOM on tinybox.
     return {
-      k: (v.llvm_bf16_cast(dtypes.float32).to(v.device) if v.dtype == dtypes.bfloat16 else v) 
+      k: (v.llvm_bf16_cast(dtypes.float32).to(v.device) if v.dtype == dtypes.bfloat16 else v)
       for k, v in weights.items()
     }
   if getenv("SUPPORT_BF16", 1):
@@ -325,3 +325,34 @@ def fix_bf16(weights: Dict[Any, Tensor]):
     return {k: v.cast(dtypes.float32).cast(dtypes.float16) if v.dtype == dtypes.bfloat16 else v for k, v in weights.items()}
   # TODO: check if device supports bf16
   return {k: v.llvm_bf16_cast(dtypes.half).to(v.device) if v.dtype == dtypes.bfloat16 else v for k, v in weights.items()}
+
+def fix_fp8(weights: Dict[Any, Tensor]):
+  """
+  Convert FP8 weights to a dtype that works on this device.
+  FP8 operations may not be supported on all backends (CLANG, CPU).
+  Strategy: Keep as FP8 if supported, otherwise cast to float16.
+  """
+  from tinygrad import Device
+  from tinygrad.helpers import getenv
+
+  # Check if device supports FP8
+  supports_fp8 = getenv("SUPPORT_FP8", 1)  # Default: assume supported
+
+  if supports_fp8:
+    # Device supports FP8 - keep as is
+    return weights
+  else:
+    # Device doesn't support FP8 - convert to float16
+    # WARNING: This loses precision but allows inference to run
+    return {
+      k: (v.cast(dtypes.float16) if v.dtype in (dtypes.fp8e4m3, dtypes.fp8e5m2) else v)
+      for k, v in weights.items()
+    }
+
+def fix_bf16_and_fp8(weights: Dict[Any, Tensor]):
+  """Handle both BF16 (existing) and FP8 (new) dtypes"""
+  # First apply BF16 fix
+  weights = fix_bf16(weights)
+  # Then apply FP8 fix
+  weights = fix_fp8(weights)
+  return weights
