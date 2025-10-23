@@ -173,3 +173,19 @@ cython_debug/
 .aider*
 
 exo/tinychat/images/*.png
+
+# Exo development artifacts (Jesse & Claude's work)
+exo-venv/
+*.backup*
+*.jpg
+*.png
+agents/initial_research/
+agents/research/
+agents/experiment/
+archive/
+chats/
+*.md
+!CLAUDE.md
+!GIT_WORKFLOW.md
+!README.md
+!CONTRIBUTING.md
