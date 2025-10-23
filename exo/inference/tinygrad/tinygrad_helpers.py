@@ -1,3 +1,4 @@
+MANUAL TIMESTAMP FOR COMPACT: 2025-10-22 20:00:00 UTC
 from tinygrad.nn.state import safe_load, torch_load
 from tinygrad import Tensor
 from pathlib import Path
@@ -38,7 +39,8 @@ def load(fn: str, shard: Shard):
         if layer_num < shard.start_layer or layer_num > shard.end_layer:
           continue
 
-      parts[n] = load(str(Path(fn).parent/Path(n).name), shard)
+      if n not in parts:  # Fix: Only load each unique file once
+        parts[n] = load(str(Path(fn).parent/Path(n).name), shard)
       filtered_weight_map[k] = n
     if DEBUG >= 2: print(f"Excluded model param keys for {shard=}: {sorted(set(weight_map.keys()) - set(filtered_weight_map.keys()))}")
     return {k: parts[n][k] for k, n in filtered_weight_map.items()}
