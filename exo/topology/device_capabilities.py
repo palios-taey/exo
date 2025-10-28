@@ -174,11 +174,70 @@ async def mac_device_capabilities() -> DeviceCapabilities:
   )
 
 
+# Jetson Thor compatibility helpers
+def is_jetson_device():
+    """Detect if running on NVIDIA Jetson hardware."""
+    try:
+        with open('/proc/device-tree/compatible', 'r') as f:
+            compatible = f.read().lower()
+            return 'tegra234' in compatible or 'tegra264' in compatible or 'nvidia,tegra' in compatible
+    except (FileNotFoundError, PermissionError):
+        return False
+
+def get_jetson_memory_mb():
+    """Get total system memory for Jetson (unified memory architecture) in MB."""
+    try:
+        with open('/proc/meminfo', 'r') as f:
+            for line in f:
+                if 'MemTotal' in line:
+                    mem_kb = int(line.split()[1])
+                    return mem_kb // 1024
+    except (FileNotFoundError, PermissionError):
+        return 16384  # Fallback: assume 16GB
+
+def get_jetson_model():
+    """Detect specific Jetson model."""
+    try:
+        with open('/proc/device-tree/compatible', 'r') as f:
+            compatible = f.read().lower()
+            if 'thor' in compatible or 'tegra264' in compatible:
+                return "NVIDIA Jetson Thor"
+            elif 'orin' in compatible or 'tegra234' in compatible:
+                return "NVIDIA Jetson Orin"
+            else:
+                return "NVIDIA Jetson"
+    except:
+        return "NVIDIA Jetson"
+
 async def linux_device_capabilities() -> DeviceCapabilities:
   import psutil
   from tinygrad import Device
 
   if DEBUG >= 2: print(f"tinygrad {Device.DEFAULT=}")
+
+  # Jetson compatibility: Check for Jetson devices first
+  if (Device.DEFAULT == "CUDA" or Device.DEFAULT == "NV" or Device.DEFAULT == "GPU") and is_jetson_device():
+    import pynvml
+
+    pynvml.nvmlInit()
+    handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+    gpu_raw_name = pynvml.nvmlDeviceGetName(handle).upper()
+    gpu_name = gpu_raw_name.rsplit(" ", 1)[0] if gpu_raw_name.endswith("GB") else gpu_raw_name
+    # Use /proc/meminfo instead of nvmlDeviceGetMemoryInfo (not supported on Jetson unified memory)
+    memory_mb = get_jetson_memory_mb()
+    model_name = get_jetson_model()
+    pynvml.nvmlShutdown()
+
+    if DEBUG >= 2: print(f"Jetson device {gpu_name=} {memory_mb=}MB (from /proc/meminfo)")
+
+    return DeviceCapabilities(
+      model=f"{model_name} ({gpu_name})",
+      chip=gpu_name,
+      memory=memory_mb,
+      flops=CHIP_FLOPS.get(gpu_name, DeviceFlops(fp32=0, fp16=0, int8=0)),
+    )
+
+  # Standard NVIDIA GPU path (discrete GPUs)
   if Device.DEFAULT == "CUDA" or Device.DEFAULT == "NV" or Device.DEFAULT == "GPU":
     import pynvml
 
