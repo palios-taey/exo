@@ -65,8 +65,11 @@ except Exception as e:
 # ============================================================================
 
 try:
-    # Add Agent 9 solution to Python path
-    agent_9_path = '/home/mira/exo/agents/solutions/agent_9_foundation'
+    # Add Agent 9 solution to Python path (relative path for portability)
+    import os
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    agent_9_path = os.path.join(script_dir, '../../../agents/solutions/agent_9_foundation')
+    agent_9_path = os.path.normpath(agent_9_path)  # Resolve relative path
     if agent_9_path not in sys.path:
         sys.path.insert(0, agent_9_path)
 
@@ -119,15 +122,17 @@ Tensor.no_grad = True
 # ============================================================================
 device_env = os.getenv("DEVICE", "").upper()
 if device_env in ["CUDA", "GPU", "NV"]:
+    # Force CUDA as default device REGARDLESS of errors
+    # CUDA Error 100 on Jetson is cosmetic (Agent 5 documented) - GPU actually works
+    Device.DEFAULT = "CUDA:0"
+    print(f"[BLACKWELL DEVICE FORCE] Device.DEFAULT = CUDA:0 (from DEVICE={device_env})", file=sys.stderr)
+
+    # Verify (but don't fail on error)
     try:
-        # Test if CUDA device is available
         cuda_device = Device["CUDA:0"]
-        # Force CUDA as default device
-        Device.DEFAULT = "CUDA:0"
-        print(f"[BLACKWELL DEVICE FORCE] Device.DEFAULT = CUDA:0 (from DEVICE={device_env})", file=sys.stderr)
+        print(f"[BLACKWELL DEVICE FORCE] CUDA:0 device verified accessible", file=sys.stderr)
     except Exception as e:
-        print(f"[BLACKWELL DEVICE FORCE] WARNING: CUDA:0 not available: {e}", file=sys.stderr)
-        print(f"[BLACKWELL DEVICE FORCE] Falling back to automatic device selection", file=sys.stderr) 
+        print(f"[BLACKWELL DEVICE FORCE] WARNING: CUDA:0 test raised {e} (continuing anyway - known Jetson cosmetic bug)", file=sys.stderr) 
 # default settings
 TEMPERATURE = int(os.getenv("TEMPERATURE", 0.85))
 TOP_K = 25

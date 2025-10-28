@@ -1,0 +1,63 @@
+--- a/tinygrad/runtime/ops_nv.py
++++ b/tinygrad/runtime/ops_nv.py
+@@ -522,7 +522,17 @@ class NVDevice(Compiled):
+       'num_tpc_per_gpc', 'num_sm_per_tpc', 'max_warps_per_sm', 'sm_version')
+
+-    # FIXME: no idea how to convert this for blackwells
+-    self.arch: str = "sm_120" if self.sm_version==0xa04 else f"sm_{(self.sm_version>>8)&0xff}{(val>>4) if (val:=self.sm_version&0xff) > 0xf else val}"
++    # Blackwell architecture detection (CC 11.0) - Fixed for Jetson Thor
++    # Hardware reports sm_version 0xa04, which is CC 11.0 (not 10.4 or 12.0)
++    # Verified: nvidia-smi shows compute capability 11.0 on Jetson Thor devices
++    if self.sm_version == 0xa04:
++      # Jetson Thor Blackwell: sm_version 0xa04 → CC 11.0 → sm_110
++      self.arch = "sm_110"
++    elif (self.sm_version & 0xf00) == 0xa00:
++      # Blackwell family (0xa00-0xaff): Hardware major 10.x → CC 11.x
++      # Handle future Blackwell variants: 0xa00→sm_110, 0xa01→sm_111, etc.
++      minor = self.sm_version & 0xff
++      self.arch = f"sm_11{minor}"
++    else:
++      # Previous architecture conversion (unchanged for non-Blackwell)
++      self.arch = f"sm_{(self.sm_version>>8)&0xff}{(val>>4) if (val:=self.sm_version&0xff) > 0xf else val}"
+     self.sass_version = ((self.sm_version & 0xf00) >> 4) | (self.sm_version & 0xf)
+
+--- a/tinygrad/runtime/support/compiler_cuda.py
++++ b/tinygrad/runtime/support/compiler_cuda.py
+@@ -62,7 +62,18 @@ class PTXCompiler(Compiler):
+   def __init__(self, arch:str, cache_key="ptx"):
+     self.arch = arch
+     super().__init__(f"compile_{cache_key}_{self.arch}")
+-  def compile(self, src:str) -> bytes: return src.replace("TARGET", self.arch).replace("VERSION", "7.8" if self.arch >= "sm_89" else "7.5").encode()
++  def compile(self, src:str) -> bytes:
++    # PTX version selection based on architecture requirements
++    # Blackwell (sm_110+) requires PTX ISA 9.0, needs version 8.5+
++    # NOTE: Use numeric comparison - string "sm_89" > "sm_110" lexicographically!
++    # Extract numeric part, handle variants (sm_110a → 110)
++    arch_num = int(self.arch.replace("sm_", "").replace("a", "").replace("f", ""))
+
++    if arch_num >= 110:
++      ptx_version = "8.5"  # Blackwell CC 11.0+ (PTX ISA 9.0)
++    elif arch_num >= 89:
++      ptx_version = "7.8"  # Hopper CC 9.0
++    else:
++      ptx_version = "7.5"  # Earlier architectures
++    return src.replace("TARGET", self.arch).replace("VERSION", ptx_version).encode()
+   def disassemble(self, lib:bytes): cuda_disassemble(lib, self.arch)
+
+--- a/exo/inference/tinygrad/inference.py
++++ b/exo/inference/tinygrad/inference.py
+@@ -1,6 +1,14 @@
+ import ctypes
+ import os
+
++# CRITICAL: Force PTX=1 for CUDA 13.0 Blackwell compilation
++# This must be set BEFORE any tinygrad imports to ensure proper compiler selection
++# PTX=0 (default): CUDARenderer → CUDA C → CUDACompiler → NVRTC (removed in CUDA 13.0) ❌
++# PTX=1 (correct):  PTXRenderer → PTX asm → NVPTXCompiler → nvJitLink (CUDA 13.0) ✅
++# See: Agent 3 research (NVPTX Architecture) and Agent 8 (Debugging Forensics)
++# nvJitLink requires actual PTX assembly, not CUDA C source code
++os.environ['PTX'] = '1'
++
+ class _NvrtcStub:
+     """Dummy NVRTC stub to prevent import crashes"""
+     @staticmethod

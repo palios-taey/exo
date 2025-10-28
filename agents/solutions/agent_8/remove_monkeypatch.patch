@@ -1,0 +1,43 @@
+--- a/exo/inference/tinygrad/inference.py
++++ b/exo/inference/tinygrad/inference.py
+@@ -1,40 +1,5 @@
+ from pathlib import Path
+-# NVRTC MONKEY-PATCH for Jetson Thor Blackwell GPU compatibility
+-# This must run BEFORE any tinygrad CUDA modules are imported
+-import sys
+-import ctypes
+-
+-def _apply_nvrtc_patch():
+-    try:
+-        from tinygrad.runtime.autogen import nvrtc
+-
+-        # Patch nvrtcVersion (for initialization checks)
+-        def dummy_nvrtcVersion(major, minor):
+-            major.value = 12
+-            minor.value = 4
+-            return 0
+-        nvrtc.nvrtcVersion = dummy_nvrtcVersion
+-
+-        # Patch ALL NVRTC compilation functions (missing in CUDA 13.0)
+-        # These raise exceptions to force tinygrad to skip CUDACompiler and use NVPTXCompiler
+-        def raise_nvrtc_error(*args, **kwargs):
+-            raise AttributeError("NVRTC compilation API not available in CUDA 13.0 - using NVPTXCompiler instead")
+-
+-        nvrtc.nvrtcCreateProgram = raise_nvrtc_error
+-        nvrtc.nvrtcDestroyProgram = raise_nvrtc_error
+-        nvrtc.nvrtcCompileProgram = raise_nvrtc_error
+-        nvrtc.nvrtcGetPTX = raise_nvrtc_error
+-        nvrtc.nvrtcGetPTXSize = raise_nvrtc_error
+-        nvrtc.nvrtcGetProgramLog = raise_nvrtc_error
+-        nvrtc.nvrtcGetProgramLogSize = raise_nvrtc_error
+-
+-        print("[NVRTC MONKEY-PATCH] Successfully patched all NVRTC compilation functions")
+-        return True
+-    except Exception as e:
+-        print(f"[NVRTC MONKEY-PATCH] Failed: {e}")
+-        return False
+-_apply_nvrtc_patch()
+-
+ import json
+ import os
+ from exo.inference.tinygrad.models.llama import Transformer, TransformerShard, convert_from_huggingface, fix_bf16, fix_bf16_and_fp8, sample_logits

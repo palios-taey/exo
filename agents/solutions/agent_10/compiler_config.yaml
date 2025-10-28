@@ -1,0 +1,182 @@
+# Compiler Configuration for CUDA 13.0 + Blackwell GPUs
+# Last Updated: 2025-10-23
+# Documentation: See CONFIG_REFERENCE.md for complete details
+
+# ==============================================================================
+# COMPILER SELECTION
+# ==============================================================================
+compiler:
+  # Preferred compiler path
+  # Options:
+  #   - "auto"   : Auto-detect best compiler (recommended)
+  #   - "ptx"    : PTX direct path (PTX=1 environment variable)
+  #   - "nvcc"   : nvcc subprocess compilation
+  #   - "nvrtc"  : NVRTC runtime compilation (CUDA <13.0 only)
+  #   - "direct" : nvJitLink direct CUDA input (experimental)
+  preferred: "auto"
+
+  # GPU architecture
+  # Blackwell: sm_110 (Jetson Thor)
+  # Datacenter Blackwell: sm_100
+  # Consumer Blackwell (RTX 50): sm_120
+  architecture: "sm_110"
+
+  # Fallback order if preferred compiler unavailable
+  # First available compiler in list will be used
+  fallback:
+    - "nvcc"
+    - "ptx"
+    - "nvrtc"
+
+# ==============================================================================
+# ENVIRONMENT DETECTION
+# ==============================================================================
+detection:
+  # Check for nvcc binary in PATH
+  check_nvcc: true
+
+  # Check for NVRTC library (libnvrtc.so)
+  check_nvrtc: true
+
+  # Minimum CUDA version required
+  cuda_version_min: "13.0"
+
+  # Verify architecture matches actual GPU
+  verify_architecture: true
+
+  # Fail fast if no compiler available
+  fail_on_no_compiler: true
+
+# ==============================================================================
+# COMPILATION SETTINGS
+# ==============================================================================
+compilation:
+  # PTX ISA version
+  # Blackwell requires 8.5+ (PTX ISA 9.0 via CUDA 13.0)
+  # Hopper: 7.8, Ampere: 7.5
+  ptx_version: "8.5"
+
+  # Optimization level (0-3)
+  # Higher = better runtime performance, longer compilation
+  optimization_level: 3
+
+  # Use fast math optimizations
+  # Trades precision for speed (safe for most ML workloads)
+  use_fast_math: true
+
+  # Include debug symbols
+  # Useful for profiling, increases binary size
+  debug_symbols: false
+
+  # Additional nvcc flags (for nvcc compiler only)
+  nvcc_extra_flags:
+    - "--use_fast_math"
+    - "-lineinfo"
+
+  # Timeout for subprocess compilation (seconds)
+  subprocess_timeout: 30
+
+# ==============================================================================
+# CACHING (Future Enhancement)
+# ==============================================================================
+cache:
+  # Enable compilation caching
+  enabled: false
+
+  # Cache directory
+  directory: "/tmp/tinygrad_cubin_cache"
+
+  # Maximum cache size (MB)
+  max_size_mb: 1024
+
+  # Cache expiration (days)
+  expiration_days: 7
+
+# ==============================================================================
+# LOGGING
+# ==============================================================================
+logging:
+  # Logging level: DEBUG, INFO, WARNING, ERROR
+  level: "INFO"
+
+  # Log each compilation (with timing)
+  log_compilation: true
+
+  # Log compiler selection decision
+  log_selection: true
+
+  # Log PTX output (first 500 bytes)
+  log_ptx_output: false
+
+  # Log CUBIN binary size
+  log_cubin_size: true
+
+  # Log file path (null = stderr only)
+  log_file: "/tmp/compiler_selector.log"
+
+  # Verbose mode (equivalent to DEBUG level)
+  verbose: false
+
+# ==============================================================================
+# DEVICE-SPECIFIC OVERRIDES (Optional)
+# ==============================================================================
+# Uncomment to enable per-device configuration
+#
+# devices:
+#   # Thor #1
+#   "10.0.0.78":
+#     compiler:
+#       preferred: "nvcc"
+#       architecture: "sm_110"
+#
+#   # Thor #2
+#   "10.0.0.93":
+#     compiler:
+#       preferred: "ptx"
+#       architecture: "sm_110"
+#
+# # Default for all other devices
+# default:
+#   compiler:
+#     preferred: "auto"
+
+# ==============================================================================
+# EXPERIMENTAL FEATURES
+# ==============================================================================
+experimental:
+  # Try nvJitLink direct CUDA input (may not be supported)
+  enable_direct_cuda: false
+
+  # Use persistent nvcc process pool (faster repeated compilation)
+  enable_process_pool: false
+
+  # Distribute CUBIN binaries across cluster (save compilation)
+  enable_cubin_distribution: false
+
+  # Hybrid compilation (different compilers for different kernels)
+  enable_hybrid: false
+
+# ==============================================================================
+# VALIDATION
+# ==============================================================================
+validation:
+  # Validate PTX output before linking
+  validate_ptx: true
+
+  # Validate CUBIN output before loading
+  validate_cubin: true
+
+  # Test compile simple kernel at startup
+  test_compile_on_start: false
+
+  # Fail on compiler warnings
+  fail_on_warnings: false
+
+# ==============================================================================
+# NOTES
+# ==============================================================================
+# 1. For production use: compiler.preferred: "nvcc" (most reliable)
+# 2. For quick testing: compiler.preferred: "ptx" (fastest)
+# 3. For CUDA <13.0: compiler.preferred: "nvrtc" (if available)
+# 4. For debugging: logging.level: "DEBUG", logging.verbose: true
+# 5. Architecture must match GPU: sm_110 for Jetson Thor Blackwell

@@ -1,0 +1,34 @@
+diff --git a/exo/inference/tinygrad/inference.py b/exo/inference/tinygrad/inference.py
+index 1234567..abcdefg 100644
+--- a/exo/inference/tinygrad/inference.py
++++ b/exo/inference/tinygrad/inference.py
+@@ -1,6 +1,12 @@
+ from pathlib import Path
++
++# DEVICE SWITCH: Set PTX=1 for CUDA 13.0 + Blackwell compatibility
++# This MUST run BEFORE any tinygrad imports
++import os
++if os.environ.get("DEVICE") in ["CUDA", "GPU"]:
++    os.environ["PTX"] = "1"  # Force PTX mode for NVDevice → PTXRenderer → NVPTXCompiler chain
++    print("[DEVICE SWITCH] Set PTX=1 for CUDA 13.0 + Blackwell compatibility")
++
+ # NVRTC MONKEY-PATCH for Jetson Thor Blackwell GPU compatibility
+-# This must run BEFORE any tinygrad CUDA modules are imported
+-import sys
+ import ctypes
+
+ def _apply_nvrtc_patch():
+@@ -270,9 +276,10 @@ class TinygradDynamicShardInferenceEngine(InferenceEngine):
+     if self.shard != shard:
+       # Set device from DEVICE environment variable (defaults to CPU if not set)
+       device_env = os.getenv("DEVICE", "CPU").upper()
+       if device_env in ["CUDA", "GPU"]:
+-        Device.DEFAULT = "CUDA"
+-        if DEBUG: print(f"[DEVICE FIX] Set Device.DEFAULT = CUDA from DEVICE={device_env}")
++        from tinygrad.device import Device
++        Device.DEFAULT = Device["NV"]  # Changed from "CUDA" to "NV" for CUDA 13.0 compatibility
++        if DEBUG: print(f"[DEVICE SWITCH] Set Device.DEFAULT = NV (PTX={os.environ.get('PTX')}) from DEVICE={device_env}")
+       else:
+         Device.DEFAULT = "CPU"
+-        if DEBUG: print(f"[DEVICE FIX] Set Device.DEFAULT = CPU from DEVICE={device_env}")
++        if DEBUG: print(f"[DEVICE SWITCH] Set Device.DEFAULT = CPU from DEVICE={device_env}")
