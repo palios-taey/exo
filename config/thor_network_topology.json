@@ -1,0 +1,32 @@
+{
+  "peers": {
+    "thor1": {
+      "address": "10.0.0.8",
+      "port": 50051,
+      "device_capabilities": {
+        "model": "NVIDIA Jetson Thor",
+        "chip": "Blackwell (sm_110)",
+        "memory": 137438953472,
+        "flops": {
+          "fp32": 5000000000000,
+          "fp16": 10000000000000,
+          "int8": 20000000000000
+        }
+      }
+    },
+    "thor2": {
+      "address": "10.0.0.78",
+      "port": 50051,
+      "device_capabilities": {
+        "model": "NVIDIA Jetson Thor",
+        "chip": "Blackwell (sm_110)",
+        "memory": 137438953472,
+        "flops": {
+          "fp32": 5000000000000,
+          "fp16": 10000000000000,
+          "int8": 20000000000000
+        }
+      }
+    }
+  }
+}
