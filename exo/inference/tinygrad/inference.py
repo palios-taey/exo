@@ -54,6 +54,39 @@ try:
 except Exception as e:
     print(f'[PTX VERSION FIX] WARNING: Failed to patch PTXCompiler: {e}', file=sys.stderr)
 
+# ============================================================================
+# CUDA 13.0 NVPTX COMPILER FIX (Agent 9 Foundation)
+# ============================================================================
+# Problem: tinygrad's NVPTXCompiler expects PTX assembly but receives CUDA C
+# Root Cause: PTXCompiler.compile() only does string replacement, no compilation
+# Solution: Replace with Agent 9's two-stage compiler (CUDA C → PTX → CUBIN)
+# Agent: Agent 2 (NVPTXCompiler Integrator) - Phase 2 of exo fix mission
+# Date: 2025-10-28
+# ============================================================================
+
+try:
+    # Add Agent 9 solution to Python path
+    agent_9_path = '/home/mira/exo/agents/solutions/agent_9_foundation'
+    if agent_9_path not in sys.path:
+        sys.path.insert(0, agent_9_path)
+
+    # Import Agent 9's production-ready NVPTXCompiler
+    from nvptx_compiler_production import NVPTXCompilerProduction
+
+    # Replace broken NVPTXCompiler with working version
+    import tinygrad.runtime.support.compiler_cuda as cuda_compiler
+    cuda_compiler.NVPTXCompiler = NVPTXCompilerProduction
+
+    print('[NVPTX FIX] Agent 9 NVPTXCompilerProduction activated for CUDA 13.0', file=sys.stderr)
+    print('[NVPTX FIX] Two-stage compilation: CUDA C → PTX (NVRTC) → CUBIN (nvJitLink)', file=sys.stderr)
+
+except ImportError as e:
+    print(f'[NVPTX FIX] WARNING: Agent 9 solution not found: {e}', file=sys.stderr)
+    print('[NVPTX FIX] Falling back to default tinygrad NVPTXCompiler', file=sys.stderr)
+except Exception as e:
+    print(f'[NVPTX FIX] ERROR: Failed to apply Agent 9 fix: {e}', file=sys.stderr)
+    raise
+
 import json
 import os
 from exo.inference.tinygrad.models.llama import Transformer, TransformerShard, convert_from_huggingface, fix_bf16, fix_bf16_and_fp8, sample_logits
