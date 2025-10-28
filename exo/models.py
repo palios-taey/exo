@@ -139,7 +139,7 @@ model_cards = {
   "qwen-2.5-coder-32b": { "layers": 64, "repo": { "MLXDynamicShardInferenceEngine": "mlx-community/Qwen2.5-Coder-32B-Instruct-4bit", }, },
   "qwen-2.5-72b": { "layers": 80, "repo": { "MLXDynamicShardInferenceEngine": "mlx-community/Qwen2.5-72B-Instruct-4bit", }, },
   "qwen-2.5-math-72b": { "layers": 80, "repo": { "MLXDynamicShardInferenceEngine": "mlx-community/Qwen2.5-Math-72B-Instruct-4bit", }, },
-  "qwen-3-coder-30b-a3b": { "layers": 40, "repo": { "TinygradDynamicShardInferenceEngine": "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8", }, },
+  "qwen-3-coder-30b-a3b": { "layers": 48, "repo": { "TinygradDynamicShardInferenceEngine": "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8", }, },
   "qwen-3-coder-480b": { "layers": 62, "repo": { "TinygradDynamicShardInferenceEngine": "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8", }, },
   ### nemotron
   "nemotron-70b": { "layers": 80, "repo": { "MLXDynamicShardInferenceEngine": "mlx-community/nvidia_Llama-3.1-Nemotron-70B-Instruct-HF_4bit", }, },
@@ -195,6 +195,7 @@ pretty_name = {
   "qwen-2.5-coder-32b": "Qwen 2.5 Coder 32B",
   "qwen-2.5-72b": "Qwen 2.5 72B",
   "qwen-2.5-math-72b": "Qwen 2.5 72B (Math)",
+  "qwen-3-coder-30b-a3b": "Qwen 3 Coder 30B (FP8 MoE)",
   "qwen-3-coder-480b": "Qwen 3 Coder 480B (FP8)",
   "phi-3.5-mini": "Phi-3.5 Mini",
   "phi-4": "Phi-4",
