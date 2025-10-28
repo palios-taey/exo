@@ -47,14 +47,15 @@ class Message:
 
 
 class ChatCompletionRequest:
-  def __init__(self, model: str, messages: List[Message], temperature: float, tools: Optional[List[Dict]] = None):
+  def __init__(self, model: str, messages: List[Message], temperature: float, max_tokens: Optional[int] = None, tools: Optional[List[Dict]] = None):
     self.model = model
     self.messages = messages
     self.temperature = temperature
+    self.max_tokens = max_tokens if max_tokens is not None else 100  # Default to 100 tokens
     self.tools = tools
 
   def to_dict(self):
-    return {"model": self.model, "messages": [message.to_dict() for message in self.messages], "temperature": self.temperature, "tools": self.tools}
+    return {"model": self.model, "messages": [message.to_dict() for message in self.messages], "temperature": self.temperature, "max_tokens": self.max_tokens, "tools": self.tools}
 
 
 def generate_completion(
@@ -167,6 +168,7 @@ def parse_chat_request(data: dict, default_model: str):
     data.get("model", default_model),
     [parse_message(msg) for msg in data["messages"]],
     data.get("temperature", 0.0),
+    data.get("max_tokens", None),  # Will default to 100 in __init__ if None
     data.get("tools", None),
   )
 
@@ -374,6 +376,10 @@ class ChatGPTAPI:
 
         try:
           # Stream tokens while waiting for inference to complete
+          # Track token count to enforce max_tokens
+          tokens_generated = 0
+          all_tokens = []
+          
           while True:
             if DEBUG >= 2: print(f"[ChatGPTAPI] Waiting for token from queue: {request_id=}")
             tokens, is_finished = await asyncio.wait_for(
@@ -381,21 +387,31 @@ class ChatGPTAPI:
               timeout=self.response_timeout
             )
             if DEBUG >= 2: print(f"[ChatGPTAPI] Got token from queue: {request_id=} {tokens=} {is_finished=}")
+            
+            # Accumulate tokens
+            all_tokens.extend(tokens)
+            tokens_generated = len(all_tokens)
+            
+            # Check if max_tokens limit reached
+            if tokens_generated >= chat_request.max_tokens:
+              if DEBUG >= 2: print(f"[ChatGPTAPI] Max tokens reached: {tokens_generated}/{chat_request.max_tokens}")
+              is_finished = True
+              finish_reason = "length"
+            else:
+              eos_token_id = None
+              if not eos_token_id and hasattr(tokenizer, "eos_token_id"): eos_token_id = tokenizer.eos_token_id
+              if not eos_token_id and hasattr(tokenizer, "_tokenizer"): eos_token_id = tokenizer.special_tokens_map.get("eos_token_id")
 
-            eos_token_id = None
-            if not eos_token_id and hasattr(tokenizer, "eos_token_id"): eos_token_id = tokenizer.eos_token_id
-            if not eos_token_id and hasattr(tokenizer, "_tokenizer"): eos_token_id = tokenizer.special_tokens_map.get("eos_token_id")
-
-            finish_reason = None
-            if is_finished: finish_reason = "stop" if tokens[-1] == eos_token_id else "length"
-            if DEBUG >= 2: print(f"{eos_token_id=} {tokens[-1]=} {finish_reason=}")
+              finish_reason = None
+              if is_finished: finish_reason = "stop" if all_tokens[-1] == eos_token_id else "length"
+              if DEBUG >= 2: print(f"{eos_token_id=} {all_tokens[-1]=} {finish_reason=}")
 
             completion = generate_completion(
               chat_request,
               tokenizer,
               prompt,
               request_id,
-              tokens,
+              all_tokens,
               stream,
               finish_reason,
               "chat.completion",
@@ -432,8 +448,15 @@ class ChatGPTAPI:
         while True:
           _tokens, is_finished = await asyncio.wait_for(self.token_queues[request_id].get(), timeout=self.response_timeout)
           tokens.extend(_tokens)
+          
+          # Check if max_tokens limit reached
+          if len(tokens) >= chat_request.max_tokens:
+            if DEBUG >= 2: print(f"[ChatGPTAPI] Max tokens reached in non-streaming: {len(tokens)}/{chat_request.max_tokens}")
+            is_finished = True
+          
           if is_finished:
             break
+        
         finish_reason = "length"
         eos_token_id = None
         if not eos_token_id and hasattr(tokenizer, "eos_token_id"): eos_token_id = tokenizer.eos_token_id
