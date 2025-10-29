@@ -1,7 +1,10 @@
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import os
 import numpy as np
-import cv2
+try:
+  import cv2
+except ImportError:
+  cv2 = None
 import sys
 
 def draw_rounded_rectangle(draw, coords, radius, fill):
@@ -145,6 +148,11 @@ def create_animation_mp4(
 
   # Convert frames to video using H.264 codec
   if frames:
+    if cv2 is None:
+      print("Warning: cv2 (OpenCV) not available, skipping video creation")
+      print(f"Created {len(frames)} frames but cannot save without cv2")
+      return
+
     first_frame = np.array(frames[0])
     height, width = first_frame.shape[:2]
     fourcc = cv2.VideoWriter_fourcc(*'avc1')
@@ -163,6 +171,6 @@ def create_animation_mp4(
     for frame in frames:
       frame_array = cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR)
       out.write(frame_array)
-    
+
     out.release()
     print(f"Video saved successfully to {output_path}")
