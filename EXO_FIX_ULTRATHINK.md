@@ -1,4 +1,5 @@
 # exo Fix Mission: AI NATIVE / AI FIRST / AI SPEED
+**TIMESTAMP FOR COMPACT: 2025-10-29 01:15 UTC**
 **Date**: 2025-10-28
 **Mission**: Make exo work for heterogeneous distributed inference (Thor + Spark + Mac + whatever)
 **Timeline**: 6-10 hours to working system
