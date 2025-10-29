@@ -1,0 +1,418 @@
+# ============================================================================
+# THOR 2 (thor@10.0.0.78) - System Requirements
+# ============================================================================
+# Generated: 2025-10-29 02:42:57 UTC
+# Purpose: Complete system-level dependency specification for exo
+# System: Ubuntu 24.04.3 LTS (Noble Numbat)
+# Kernel: 6.8.12-tegra (PREEMPT SMP)
+# Architecture: aarch64 (ARM64)
+# Hostname: thor
+# ============================================================================
+
+# ============================================================================
+# OPERATING SYSTEM
+# ============================================================================
+# OS: Ubuntu 24.04.3 LTS (Noble Numbat)
+# Codename: noble
+# Kernel: 6.8.12-tegra #1 SMP PREEMPT Thu Sep 25 15:19:42 PDT 2025
+# Architecture: aarch64
+
+# ============================================================================
+# NVIDIA L4T PACKAGES (Jetson Linux for Tegra)
+# ============================================================================
+# Version: 38.2.2-20250925153837
+
+nvidia-l4t-apt-source=38.2.1-20250910123945
+nvidia-l4t-configs=38.2.2-20250925153837
+nvidia-l4t-init=38.2.1-20250910123945
+nvidia-l4t-kernel=6.8.12-tegra-38.2.2-20250925153837
+nvidia-l4t-kernel-dtbs=6.8.12-tegra-38.2.2-20250925153837
+nvidia-l4t-kernel-headers=6.8.12-tegra-38.2.2-20250925153837
+nvidia-l4t-kernel-module-configs=6.8.12-tegra-38.2.1-20250910123945
+nvidia-l4t-kernel-oot-headers=6.8.12-tegra-38.2.2-20250925153837
+nvidia-l4t-kernel-oot-modules=6.8.12-tegra-38.2.2-20250925153837
+nvidia-l4t-display-kernel=6.8.12-tegra-38.2.2-20250925153837
+nvidia-l4t-firmware=38.2.1-20250910123945
+nvidia-l4t-firmware-openrm=38.2.2-20250925153837
+nvidia-l4t-initrd=38.2.1-20250910123945
+nvidia-l4t-extlinux=38.2.1-20250910123945
+nvidia-l4t-firstboot=38.2.1-20250910123945
+nvidia-l4t-adaruntime=38.2.2-20250925153837
+nvidia-l4t-cudadebuggingsupport=13.0-36205356.0
+nvidia-l4t-libvulkan=38.2.2-20250925153837
+nvidia-l4t-vulkan-sc-dev=38.2.2-20250925153837
+nvidia-l4t-vulkan-sc-sdk=38.2.2-20250925153837
+nvidia-l4t-x11=38.2.2-20250925153837
+nvidia-l4t-optee=38.2.1-20250910123945
+nvidia-l4t-usb-service=38.2.1-20250910123945
+nvidia-l4t-wpasupplicant=38.2.1-20250910123945
+
+# ============================================================================
+# NVIDIA CUDA TOOLKIT 13.0
+# ============================================================================
+# CUDA Version: 13.0 (Driver 580.00)
+# Installed at: /usr/local/cuda-13.0
+
+cuda-toolkit-13-0=13.0.0-1
+cuda-toolkit-13-0-config-common=13.0.48-1
+cuda-toolkit-13-config-common=13.0.48-1
+cuda-toolkit-config-common=13.0.48-1
+
+# CUDA Core Components
+cuda-cudart-13-0=13.0.48-1
+cuda-cudart-dev-13-0=13.0.48-1
+cuda-driver-dev-13-0=13.0.48-1
+cuda-nvrtc-13-0=13.0.48-1
+cuda-nvrtc-dev-13-0=13.0.48-1
+cuda-nvcc-13-0=13.0.48-1
+cuda-compiler-13-0=13.0.0-1
+cuda-crt-13-0=13.0.48-1
+cuda-cccl-13-0=13.0.50-1
+cuda-culibos-dev-13-0=13.0.39-1
+
+# CUDA Libraries
+cuda-libraries-13-0=13.0.0-1
+cuda-libraries-dev-13-0=13.0.0-1
+
+# CUDA Profiling and Analysis
+cuda-cupti-13-0=13.0.48-1
+cuda-cupti-dev-13-0=13.0.48-1
+cuda-nvtx-13-0=13.0.39-1
+cuda-profiler-api-13-0=13.0.39-1
+cuda-sanitizer-13-0=13.0.48-1
+
+# CUDA Development Tools
+cuda-command-line-tools-13-0=13.0.0-1
+cuda-tools-13-0=13.0.0-1
+cuda-gdb-13-0=13.0.39-1
+cuda-cuobjdump-13-0=13.0.39-1
+cuda-cuxxfilt-13-0=13.0.39-1
+cuda-nvdisasm-13-0=13.0.39-1
+cuda-nvprune-13-0=13.0.39-1
+
+# CUDA Visual Tools
+cuda-visual-tools-13-0=13.0.0-1
+cuda-nsight-compute-13-0=13.0.0-1
+cuda-nsight-systems-13-0=13.0.0-1
+
+# CUDA Documentation
+cuda-documentation-13-0=13.0.39-1
+
+# CUDA NVML
+cuda-nvml-dev-13-0=13.0.39-1
+
+# ============================================================================
+# NVIDIA CUDNN 9 (Deep Neural Network Library)
+# ============================================================================
+# Version: 9.12.0.46-1
+
+libcudnn9-cuda-13=9.12.0.46-1
+libcudnn9-dev-cuda-13=9.12.0.46-1
+libcudnn9-headers-cuda-13=9.12.0.46-1
+libcudnn9-samples=9.12.0.46-1
+
+# ============================================================================
+# NVIDIA TENSORRT 10 (Inference Optimization)
+# ============================================================================
+# Version: 10.13.3.9-1+cuda13.0
+
+tensorrt=10.13.3.9-1+cuda13.0
+tensorrt-libs=10.13.3.9-1+cuda13.0
+libnvinfer10=10.13.3.9-1+cuda13.0
+libnvinfer-dev=10.13.3.9-1+cuda13.0
+libnvinfer-bin=10.13.3.9-1+cuda13.0
+libnvinfer-dispatch10=10.13.3.9-1+cuda13.0
+libnvinfer-dispatch-dev=10.13.3.9-1+cuda13.0
+libnvinfer-lean10=10.13.3.9-1+cuda13.0
+libnvinfer-lean-dev=10.13.3.9-1+cuda13.0
+libnvinfer-plugin10=10.13.3.9-1+cuda13.0
+libnvinfer-plugin-dev=10.13.3.9-1+cuda13.0
+libnvinfer-vc-plugin10=10.13.3.9-1+cuda13.0
+libnvinfer-vc-plugin-dev=10.13.3.9-1+cuda13.0
+libnvinfer-headers-dev=10.13.3.9-1+cuda13.0
+libnvinfer-headers-plugin-dev=10.13.3.9-1+cuda13.0
+libnvinfer-headers-python-plugin-dev=10.13.3.9-1+cuda13.0
+libnvinfer-samples=10.13.3.9-1+cuda13.0
+libnvonnxparsers10=10.13.3.9-1+cuda13.0
+libnvonnxparsers-dev=10.13.3.9-1+cuda13.0
+
+# TensorRT Python Bindings
+python3-libnvinfer=10.13.3.9-1+cuda13.0
+python3-libnvinfer-dev=10.13.3.9-1+cuda13.0
+python3-libnvinfer-dispatch=10.13.3.9-1+cuda13.0
+python3-libnvinfer-lean=10.13.3.9-1+cuda13.0
+
+# ============================================================================
+# NVIDIA CONTAINER TOOLKIT (Docker/LXC Support)
+# ============================================================================
+# Version: 1.18.0~rc.4-1
+
+nvidia-container=7.0-b128
+nvidia-container-toolkit=1.18.0~rc.4-1
+nvidia-container-toolkit-base=1.18.0~rc.4-1
+libnvidia-container1:arm64=1.18.0~rc.4-1
+libnvidia-container-tools=1.18.0~rc.4-1
+
+# ============================================================================
+# NVIDIA META PACKAGES
+# ============================================================================
+# Version: 7.0-b128
+
+nvidia-cuda=7.0-b128
+nvidia-cuda-dev=7.0-b128
+nvidia-cudnn=7.0-b128
+nvidia-cudnn-dev=7.0-b128
+nvidia-tensorrt=7.0-b128
+nvidia-tensorrt-dev=7.0-b128
+nvidia-nsight-systems=7.0-b128
+nvidia-opencv=7.0-b128
+nvidia-opencv-dev=7.0-b128
+nvidia-vpi=7.0-b128
+nvidia-vpi-dev=7.0-b128
+nvidia-cupva=7.0-b128
+
+# ============================================================================
+# PYTHON 3.12
+# ============================================================================
+python3=3.12.3-0ubuntu2
+python3.12=3.12.3-1ubuntu0.8
+python3.12-minimal=3.12.3-1ubuntu0.8
+python3-minimal=3.12.3-0ubuntu2
+libpython3.12:arm64=3.12.3-1ubuntu0.8
+libpython3.12-minimal:arm64=3.12.3-1ubuntu0.8
+libpython3.12-stdlib:arm64=3.12.3-1ubuntu0.8
+libpython3-stdlib:arm64=3.12.3-0ubuntu2
+python-is-python3=3.11.4-1
+
+# Python Development Headers
+python3-dev=3.12.3-0ubuntu2
+python3.12-dev=3.12.3-1ubuntu0.8
+libpython3-dev:arm64=3.12.3-0ubuntu2
+libpython3.12-dev:arm64=3.12.3-1ubuntu0.8
+
+# Python Virtual Environment
+python3-venv=3.12.3-0ubuntu2
+python3.12-venv=3.12.3-1ubuntu0.8
+
+# Python pip
+python3-pip=24.0+dfsg-1ubuntu1.3
+python3-pip-whl=24.0+dfsg-1ubuntu1.3
+
+# Python setuptools
+python3-setuptools=68.1.2-2ubuntu1.2
+python3-setuptools-whl=68.1.2-2ubuntu1.2
+python3-pkg-resources=68.1.2-2ubuntu1.2
+
+# Python wheel
+python3-wheel=0.42.0-2
+python3-wheel-whl=0.42.0-2
+
+# Jetson-specific Python packages
+python3-jetson-gpio=2.1.10-0ubuntu1
+python3.12-vpi4=4.0.0~er5
+
+# ============================================================================
+# BUILD TOOLS
+# ============================================================================
+build-essential=12.10ubuntu1
+gcc=4:13.2.0-7ubuntu1
+g++=4:13.2.0-7ubuntu1
+make=4.3-4.1build2
+cmake=3.28.3-1build7
+cmake-data=3.28.3-1build7
+
+# ============================================================================
+# VERSION CONTROL
+# ============================================================================
+git=1:2.43.0-1ubuntu7.3
+git-man=1:2.43.0-1ubuntu7.3
+git-lfs=3.4.1-1ubuntu0.3
+
+# ============================================================================
+# COMPRESSION LIBRARIES
+# ============================================================================
+libbz2-1.0:arm64
+liblz4-1:arm64
+liblzma5:arm64
+zlib1g:arm64
+libzstd1:arm64
+
+# ============================================================================
+# SSL/TLS
+# ============================================================================
+libssl3:arm64
+openssl=3.0.13-0ubuntu3.4
+
+# ============================================================================
+# NETWORKING LIBRARIES
+# ============================================================================
+libcurl4:arm64
+libnghttp2-14:arm64
+libssh-4:arm64
+librtmp1:arm64
+
+# ============================================================================
+# IMAGE PROCESSING LIBRARIES
+# ============================================================================
+libpng16-16t64:arm64
+libjpeg-turbo8:arm64
+libtiff6:arm64=4.5.1+git230720-4ubuntu2.3
+libtiff-dev:arm64=4.5.1+git230720-4ubuntu2.3
+libtiffxx6:arm64=4.5.1+git230720-4ubuntu2.3
+libwebp7:arm64=1.3.2-0.4build3
+libwebp-dev:arm64=1.3.2-0.4build3
+libwebpdemux2:arm64=1.3.2-0.4build3
+libwebpmux3:arm64=1.3.2-0.4build3
+
+# ============================================================================
+# AUDIO/VIDEO LIBRARIES
+# ============================================================================
+libx264-164:arm64=2:0.164.3108+git31e19f9-1
+libdc1394-25:arm64=2.2.6-4build1
+libdc1394-dev:arm64=2.2.6-4build1
+libdv4t64:arm64=1.0.0-17.1build1
+libcdio-cdda2t64:arm64=10.2+2.0.1-1.1build2
+libcdio-paranoia2t64:arm64=10.2+2.0.1-1.1build2
+
+# Audio codecs
+libldacbt-abr2:arm64=2.0.2.3+git20200429+ed310a0-4ubuntu2
+libldacbt-enc2:arm64=2.0.2.3+git20200429+ed310a0-4ubuntu2
+
+# SoX (Sound eXchange)
+libsox3:arm64=14.4.2+git20190427-4build4
+libsox-fmt-base:arm64=14.4.2+git20190427-4build4
+libsox-fmt-alsa:arm64=14.4.2+git20190427-4build4
+sox=14.4.2+git20190427-4build4
+
+# ============================================================================
+# HARDWARE MONITORING
+# ============================================================================
+libpfm4:arm64=4.13.0+git32-g0d4ed0e-1
+lshw=02.19.git.2021.06.19.996aaad9c7-2build3
+
+# ============================================================================
+# SYSTEM LIBRARIES
+# ============================================================================
+glibc-tools=0.0~git3.23fd2b9-0ubuntu1
+libc6:arm64
+libgcc-s1:arm64
+libstdc++6:arm64
+
+# ============================================================================
+# DESKTOP ENVIRONMENT (if installed)
+# ============================================================================
+# GNOME (basic)
+libgphoto2-6t64:arm64=2.5.31-2.1build2
+libgphoto2-dev:arm64=2.5.31-2.1build2
+libgphoto2-port12t64:arm64=2.5.31-2.1build2
+
+# ============================================================================
+# FIRMWARE
+# ============================================================================
+linux-firmware=20240318.git3b128b60-0ubuntu2.15
+
+# ============================================================================
+# NOTES
+# ============================================================================
+#
+# 1. CUDA ENVIRONMENT SETUP:
+#    export PATH=/usr/local/cuda-13.0/bin:$PATH
+#    export LD_LIBRARY_PATH=/usr/local/cuda-13.0/lib64:$LD_LIBRARY_PATH
+#    export CUDA_HOME=/usr/local/cuda-13.0
+#
+# 2. CUDA LIBRARY SYMLINKS:
+#    /usr/local/cuda -> /etc/alternatives/cuda -> /usr/local/cuda-13.0
+#    /usr/local/cuda-13 -> /etc/alternatives/cuda-13 -> /usr/local/cuda-13.0
+#    /usr/local/cuda-13.0/lib64/libcudart.so.12 -> libcudart.so.13 (compatibility)
+#
+# 3. NVIDIA DRIVER:
+#    Version: 580.00
+#    Supports CUDA 13.0
+#    Built-in to L4T kernel
+#
+# 4. JETSON THOR SPECIFIC:
+#    - Unified memory architecture (no separate VRAM)
+#    - 25GbE mgbe network interfaces (mgbe0, mgbe1, etc.)
+#    - Blackwell GPU architecture (compute capability 10.1)
+#    - L4T (Linux for Tegra) 38.2.2
+#
+# 5. INSTALLATION COMMANDS:
+#    sudo apt update
+#    sudo apt install -y $(cat thor2_requirements_system.txt | grep -E '^[a-z]' | cut -d= -f1)
+#
+# 6. VERIFY CUDA INSTALLATION:
+#    nvcc --version  # Should show CUDA 13.0
+#    nvidia-smi      # Should show driver 580.00, CUDA 13.0
+#
+# 7. CRITICAL SYSTEM PACKAGES FOR EXO:
+#    - CUDA Toolkit 13.0 (compilation)
+#    - cuDNN 9 (neural network acceleration)
+#    - TensorRT 10 (inference optimization)
+#    - Python 3.12 with dev headers
+#    - Build tools (gcc, g++, cmake)
+#    - Git for version control
+#
+# 8. DISK SPACE REQUIREMENTS:
+#    - CUDA Toolkit: ~6 GB
+#    - TensorRT: ~2 GB
+#    - Python packages: ~3 GB
+#    - Model cache: Variable (30B model ~60 GB)
+#    - Total recommended: 100 GB free
+#
+# 9. MEMORY REQUIREMENTS:
+#    - System: 4 GB minimum
+#    - Model inference: 16-32 GB for 30B model
+#    - Total recommended: 32 GB+ unified memory
+#
+# 10. NETWORK REQUIREMENTS:
+#     - 25GbE interface (mgbe) for inter-Thor communication
+#     - Low latency (<1ms) between Thor nodes
+#     - Stable connection to Hugging Face Hub for model downloads
+#
+# ============================================================================
+# CONFLICTS AND ISSUES
+# ============================================================================
+#
+# 1. CUDA 12.x vs 13.0:
+#    - Some packages built for CUDA 12.x work with 13.0
+#    - CuPy reports cuda12x but uses CUDA 13.0 runtime
+#    - Compatibility maintained via libcudart.so.12 symlink
+#
+# 2. PyTorch CUDA Mismatch:
+#    - PyTorch 2.9.0 built for CUDA 13.0 (cu130 tag)
+#    - Ensure CUDA_HOME points to 13.0, not 12.x
+#
+# 3. TensorRT Python Version:
+#    - Must match Python 3.12 exactly
+#    - System packages: python3-libnvinfer for Python 3.12
+#    - Pip packages: tensorrt==10.13.3.9
+#
+# 4. Jetson-specific:
+#    - VPI (Vision Programming Interface) system package only
+#    - No pip installable version
+#    - Installed at: /usr/lib/python3.12/dist-packages/
+#
+# ============================================================================
+# MAINTENANCE
+# ============================================================================
+#
+# To update this file:
+# 1. SSH to thor@10.0.0.78
+# 2. Run: dpkg -l | grep '^ii' > /tmp/all_packages.txt
+# 3. Filter for relevant packages (nvidia, cuda, python, build tools)
+# 4. Update version numbers in this file
+# 5. Update timestamp at top
+# 6. Test installation on clean system if possible
+# 7. Document changes in git commit
+#
+# To verify installation:
+# apt list --installed | grep -E '(nvidia|cuda|cudnn|tensorrt|python3\.12)'
+#
+# To check for updates:
+# apt list --upgradable
+#
+# Generated by: Claude (Team Anthropic)
+# Project: Exo Distributed LLM Infrastructure
+# Documentation: /home/mira/exo/CLAUDE.md
+#
+# ============================================================================
