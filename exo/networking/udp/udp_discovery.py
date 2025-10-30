@@ -61,6 +61,7 @@ class UDPDiscovery(Discovery):
     device_capabilities: DeviceCapabilities = UNKNOWN_DEVICE_CAPABILITIES,
     allowed_node_ids: Optional[List[str]] = None,
     allowed_interface_types: Optional[List[str]] = None,
+    static_peers: Optional[List[Dict[str, str]]] = None,
   ):
     self.node_id = node_id
     self.node_port = node_port
@@ -72,23 +73,29 @@ class UDPDiscovery(Discovery):
     self.device_capabilities = device_capabilities
     self.allowed_node_ids = allowed_node_ids
     self.allowed_interface_types = allowed_interface_types
+    self.static_peers = static_peers or []
     self.known_peers: Dict[str, Tuple[PeerHandle, float, float, int]] = {}
     self.broadcast_task = None
     self.listen_task = None
     self.cleanup_task = None
+    self.static_peers_task = None
 
   async def start(self):
     self.device_capabilities = await device_capabilities()
     self.broadcast_task = asyncio.create_task(self.task_broadcast_presence())
     self.listen_task = asyncio.create_task(self.task_listen_for_peers())
     self.cleanup_task = asyncio.create_task(self.task_cleanup_peers())
+    if self.static_peers:
+      self.static_peers_task = asyncio.create_task(self.task_connect_static_peers())
 
   async def stop(self):
     if self.broadcast_task: self.broadcast_task.cancel()
     if self.listen_task: self.listen_task.cancel()
     if self.cleanup_task: self.cleanup_task.cancel()
-    if self.broadcast_task or self.listen_task or self.cleanup_task:
-      await asyncio.gather(self.broadcast_task, self.listen_task, self.cleanup_task, return_exceptions=True)
+    if self.static_peers_task: self.static_peers_task.cancel()
+    tasks = [t for t in [self.broadcast_task, self.listen_task, self.cleanup_task, self.static_peers_task] if t]
+    if tasks:
+      await asyncio.gather(*tasks, return_exceptions=True)
 
   async def discover_peers(self, wait_for_peers: int = 0) -> List[PeerHandle]:
     if wait_for_peers > 0:
@@ -230,6 +237,63 @@ class UDPDiscovery(Discovery):
         print(traceback.format_exc())
       finally:
         await asyncio.sleep(self.broadcast_interval)
+
+  async def task_connect_static_peers(self):
+    """
+    Connect to statically configured peers (fallback for UDP broadcast issues).
+    Expected format: [{"peer_id": "id", "address": "10.0.0.93", "port": 52416}]
+    """
+    if DEBUG_DISCOVERY >= 1: print(f"[STATIC PEERS] Connecting to {len(self.static_peers)} static peer(s)")
+
+    while True:
+      try:
+        for peer_config in self.static_peers:
+          peer_id = peer_config.get("peer_id")
+          peer_address = peer_config.get("address")
+          peer_port = peer_config.get("port")
+
+          if not all([peer_id, peer_address, peer_port]):
+            if DEBUG_DISCOVERY >= 1: print(f"[STATIC PEERS] Invalid config: {peer_config}")
+            continue
+
+          # Skip self
+          if peer_id == self.node_id:
+            continue
+
+          # Check if already connected
+          if peer_id in self.known_peers:
+            # Verify health
+            peer_handle = self.known_peers[peer_id][0]
+            if await peer_handle.health_check():
+              continue  # Already connected and healthy
+
+          # Attempt connection
+          if DEBUG_DISCOVERY >= 1: print(f"[STATIC PEERS] Attempting connection to {peer_id} at {peer_address}:{peer_port}")
+
+          try:
+            # Create peer handle with default device capabilities (will be updated via gRPC)
+            peer_handle = self.create_peer_handle(
+              peer_id,
+              f"{peer_address}:{peer_port}",
+              "STATIC",
+              UNKNOWN_DEVICE_CAPABILITIES
+            )
+
+            # Health check
+            if await peer_handle.health_check():
+              # Add to known peers with high priority (static = trusted)
+              self.known_peers[peer_id] = (peer_handle, time.time(), time.time(), 100)
+              if DEBUG >= 1: print(f"[STATIC PEERS] Successfully connected to {peer_id} at {peer_address}:{peer_port}")
+            else:
+              if DEBUG_DISCOVERY >= 2: print(f"[STATIC PEERS] Health check failed for {peer_id} at {peer_address}:{peer_port}")
+          except Exception as e:
+            if DEBUG_DISCOVERY >= 2: print(f"[STATIC PEERS] Error connecting to {peer_id}: {e}")
+
+      except Exception as e:
+        print(f"[STATIC PEERS] Error in static peers task: {e}")
+        print(traceback.format_exc())
+      finally:
+        await asyncio.sleep(5.0)  # Check static peers every 5 seconds
 
   async def check_peer(self, peer_id: str, current_time: float) -> bool:
     peer_handle, connected_at, last_seen, prio = self.known_peers.get(peer_id, (None, None, None, None))
