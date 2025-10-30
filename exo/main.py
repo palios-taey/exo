@@ -8,8 +8,22 @@ import os
 import time
 import traceback
 import uuid
+import multiprocessing
 import numpy as np
 from tqdm import tqdm
+
+# ARM64 CUDA compatibility fix: Set multiprocessing start method to 'spawn'
+# CRITICAL: Must happen before any CUDA imports to prevent fork corruption on ARM64
+# See: https://pytorch.org/docs/stable/notes/multiprocessing.html#cuda-in-multiprocessing
+if platform.machine() in ['aarch64', 'arm64']:
+    try:
+        multiprocessing.set_start_method('spawn', force=True)
+        if os.environ.get('DEBUG', '0') != '0':
+            print("[ARM64 FIX] Set multiprocessing start method to 'spawn' for CUDA compatibility")
+    except RuntimeError as e:
+        # Already set - that's fine
+        if os.environ.get('DEBUG', '0') != '0':
+            print(f"[ARM64 FIX] Multiprocessing start method already set: {e}")
 from exo.train.dataset import load_dataset, iterate_batches
 from exo.networking.manual.manual_discovery import ManualDiscovery
 from exo.orchestration.node import Node
