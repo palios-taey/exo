@@ -218,7 +218,10 @@ def preemptively_load_shard(request_id: str, opaque_status: str):
     if DEBUG >= 2:
       print(f"Failed to preemptively start download: {e}")
       traceback.print_exc()
-node.on_opaque_status.register("preemptively_load_shard").on_next(preemptively_load_shard)
+# DISABLED: Preemptive loading causes Thor #2 crash when receiving peer messages during startup
+# Root cause: Thor #2 discovers Thor #1, receives status broadcast, tries to load model → CPU fallback → clang ARM crash
+# Fix: Load models lazily only on first inference request (original behavior before preemptive optimization)
+# node.on_opaque_status.register("preemptively_load_shard").on_next(preemptively_load_shard)
 
 last_events: dict[str, tuple[float, RepoProgressEvent]] = {}
 def throttled_broadcast(shard: Shard, event: RepoProgressEvent):
