@@ -177,6 +177,16 @@ async def mac_device_capabilities() -> DeviceCapabilities:
 # Jetson Thor compatibility helpers
 def is_jetson_device():
     """Detect if running on NVIDIA Jetson hardware."""
+    # Primary detection: Check /proc/device-tree/model (more reliable than compatible)
+    try:
+        with open('/proc/device-tree/model', 'r') as f:
+            model = f.read().lower()
+            if 'tegra' in model or 'jetson' in model:
+                return True
+    except (FileNotFoundError, PermissionError):
+        pass
+
+    # Fallback: Check /proc/device-tree/compatible
     try:
         with open('/proc/device-tree/compatible', 'r') as f:
             compatible = f.read().lower()
@@ -216,19 +226,30 @@ async def linux_device_capabilities() -> DeviceCapabilities:
   if DEBUG >= 2: print(f"tinygrad {Device.DEFAULT=}")
 
   # Jetson compatibility: Check for Jetson devices first
+  # CRITICAL FIX: Bypass NVML entirely on Jetson - unified memory not supported by pynvml
   if (Device.DEFAULT == "CUDA" or Device.DEFAULT == "NV" or Device.DEFAULT == "GPU") and is_jetson_device():
-    import pynvml
-
-    pynvml.nvmlInit()
-    handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-    gpu_raw_name = pynvml.nvmlDeviceGetName(handle).upper()
-    gpu_name = gpu_raw_name.rsplit(" ", 1)[0] if gpu_raw_name.endswith("GB") else gpu_raw_name
-    # Use /proc/meminfo instead of nvmlDeviceGetMemoryInfo (not supported on Jetson unified memory)
+    # Get memory from /proc/meminfo (unified memory architecture)
     memory_mb = get_jetson_memory_mb()
     model_name = get_jetson_model()
-    pynvml.nvmlShutdown()
 
-    if DEBUG >= 2: print(f"Jetson device {gpu_name=} {memory_mb=}MB (from /proc/meminfo)")
+    # Attempt to get GPU name from NVML, but don't fail if unavailable
+    gpu_name = "NVIDIA GPU"  # Default
+    try:
+        import pynvml
+        pynvml.nvmlInit()
+        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+        gpu_raw_name = pynvml.nvmlDeviceGetName(handle).upper()
+        gpu_name = gpu_raw_name.rsplit(" ", 1)[0] if gpu_raw_name.endswith("GB") else gpu_raw_name
+        pynvml.nvmlShutdown()
+    except Exception as e:
+        if DEBUG >= 1: print(f"[JETSON] Could not query GPU name via NVML (expected on Jetson): {e}")
+        # Fallback: Use model name to infer GPU
+        if "Thor" in model_name:
+            gpu_name = "NVIDIA BLACKWELL"  # Jetson Thor = Blackwell architecture
+        elif "Orin" in model_name:
+            gpu_name = "NVIDIA AMPERE"
+
+    if DEBUG >= 2: print(f"[JETSON] Detected {model_name=} {gpu_name=} {memory_mb=}MB (from /proc/meminfo, bypassed NVML memory query)")
 
     return DeviceCapabilities(
       model=f"{model_name} ({gpu_name})",
