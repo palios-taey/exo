@@ -16,8 +16,10 @@ import platform
 
 if platform.system().lower() == "darwin" and platform.machine().lower() == "arm64":
   import mlx.core as mx
+  HAS_MLX = True
 else:
   import numpy as mx
+  HAS_MLX = False
 
 
 class GRPCPeerHandle(PeerHandle):
@@ -207,17 +209,35 @@ class GRPCPeerHandle(PeerHandle):
     proto_inference_state = node_service_pb2.InferenceState()
     other_data = {}
     for k, v in inference_state.items():
-      if isinstance(v, mx.array):
+      # Check for tensor types (MLX on Darwin ARM64, numpy everywhere else)
+      is_tensor = False
+      if HAS_MLX and isinstance(v, mx.array):
+        is_tensor = True
+      elif not HAS_MLX and isinstance(v, np.ndarray):
+        is_tensor = True
+
+      if is_tensor:
         np_array = np.array(v)
         tensor_data = node_service_pb2.Tensor(tensor_data=np_array.tobytes(), shape=list(np_array.shape), dtype=str(np_array.dtype))
         proto_inference_state.tensor_data[k].CopyFrom(tensor_data)
-      elif isinstance(v, list) and all(isinstance(item, mx.array) for item in v):
-        tensor_list = node_service_pb2.TensorList()
-        for tensor in v:
-          np_array = np.array(tensor)
-          tensor_data = node_service_pb2.Tensor(tensor_data=np_array.tobytes(), shape=list(np_array.shape), dtype=str(np_array.dtype))
-          tensor_list.tensors.append(tensor_data)
-        proto_inference_state.tensor_list_data[k].CopyFrom(tensor_list)
+      elif isinstance(v, list) and len(v) > 0:
+        # Check if list of tensors
+        first_item = v[0]
+        is_tensor_list = False
+        if HAS_MLX and isinstance(first_item, mx.array):
+          is_tensor_list = all(isinstance(item, mx.array) for item in v)
+        elif not HAS_MLX and isinstance(first_item, np.ndarray):
+          is_tensor_list = all(isinstance(item, np.ndarray) for item in v)
+
+        if is_tensor_list:
+          tensor_list = node_service_pb2.TensorList()
+          for tensor in v:
+            np_array = np.array(tensor)
+            tensor_data = node_service_pb2.Tensor(tensor_data=np_array.tobytes(), shape=list(np_array.shape), dtype=str(np_array.dtype))
+            tensor_list.tensors.append(tensor_data)
+          proto_inference_state.tensor_list_data[k].CopyFrom(tensor_list)
+        else:
+          other_data[k] = v
       else:
         # For non-tensor data, we'll still use JSON
         other_data[k] = v
