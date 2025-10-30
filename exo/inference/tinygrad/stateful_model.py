@@ -19,4 +19,5 @@ class ModelState:
 def make_prompt_state(x: Tensor, model):
   cache = [create_kv_cache(x, l.attention) for l in model.layers]
 
-  return ModelState(cache)
+  # Explicitly initialize start_pos to 0 for new conversations
+  return ModelState(cache, start=0)

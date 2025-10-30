@@ -277,6 +277,14 @@ class TinygradDynamicShardInferenceEngine(InferenceEngine):
     else:
       self.states.move_to_end(request_id)
     state = self.states[request_id]
+
+    # Reset state if start_pos exceeds max_context to prevent assertion errors
+    # This handles cases where conversation exceeds model's context window
+    if state.start >= self.model.max_context:
+      if DEBUG: print(f"[STATE RESET] Resetting state for {request_id}: start_pos {state.start} >= max_context {self.model.max_context}")
+      self.states[request_id] = make_prompt_state(x, self.model)
+      state = self.states[request_id]
+
     return {"start_pos": state.start, "cache": state.cache}
 
   async def sample(self, x: np.ndarray, temp=TEMPERATURE, top_p: float = 0.0) -> np.ndarray:
