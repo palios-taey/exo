@@ -269,7 +269,7 @@ class TinygradDynamicShardInferenceEngine(InferenceEngine):
     self.states = OrderedDict()
     self.executor = _executor
 
-  def poll_state(self, x, request_id: str, max_states=2):
+  def poll_state(self, x, request_id: str, max_states=2, distributed_start_pos: Optional[int] = None):
     if request_id not in self.states:
       if len(self.states) >= max_states:
         self.states.popitem(last=False)
@@ -277,6 +277,12 @@ class TinygradDynamicShardInferenceEngine(InferenceEngine):
     else:
       self.states.move_to_end(request_id)
     state = self.states[request_id]
+
+    # Synchronize start_pos from distributed inference
+    if distributed_start_pos is not None:
+      if DEBUG >= 2:
+        print(f"[SYNC] Updating start_pos from {state.start} to {distributed_start_pos}")
+      state.start = distributed_start_pos
 
     # Reset state if start_pos exceeds max_context to prevent assertion errors
     # This handles cases where conversation exceeds model's context window
@@ -315,14 +321,30 @@ class TinygradDynamicShardInferenceEngine(InferenceEngine):
   
   async def infer_tensor(self, request_id: str, shard: Shard, input_data: np.ndarray, inference_state: Optional[dict] = None) -> tuple[np.ndarray, Optional[dict]]:
     await self.ensure_shard(shard)
+
+    # Import start_pos from distributed state
+    distributed_start_pos = None
+    if inference_state and 'start_pos' in inference_state:
+      distributed_start_pos = inference_state['start_pos']
+      if DEBUG >= 2:
+        print(f"[IMPORT] Received start_pos={distributed_start_pos} from peer")
+
     def wrap_infer():
       x = Tensor(input_data)
       h = self.model.embed(x)
-      state = self.poll_state(h, request_id)
+      state = self.poll_state(h, request_id, distributed_start_pos=distributed_start_pos)
       out = self.model.forward(h, **state)
       self.states[request_id].start += x.shape[1]
       return out.numpy()
     output_data = await asyncio.get_running_loop().run_in_executor(self.executor, wrap_infer)
+
+    # Export updated start_pos to distributed state
+    if inference_state is None:
+      inference_state = {}
+    inference_state['start_pos'] = self.states[request_id].start
+    if DEBUG >= 2:
+      print(f"[EXPORT] Sending start_pos={self.states[request_id].start} to peer")
+
     return output_data, inference_state
 
   async def evaluate(self, request_id: str, shard: Shard, inputs, targets, lengths, loss=length_masked_ce_loss):
