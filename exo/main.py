@@ -218,10 +218,18 @@ def preemptively_load_shard(request_id: str, opaque_status: str):
     if DEBUG >= 2:
       print(f"Failed to preemptively start download: {e}")
       traceback.print_exc()
-# DISABLED: Preemptive loading causes Thor #2 crash when receiving peer messages during startup
-# Root cause: Thor #2 discovers Thor #1, receives status broadcast, tries to load model → CPU fallback → clang ARM crash
-# Fix: Load models lazily only on first inference request (original behavior before preemptive optimization)
-# node.on_opaque_status.register("preemptively_load_shard").on_next(preemptively_load_shard)
+
+# PREEMPTIVE LOADING: Re-enabled after fixing root cause
+# Previous issue: Thor #2 crashed during startup when preemptive loading triggered
+# Root cause identified: DEVICE=CUDA environment variable not set in shell environment
+# - Tinygrad Device.DEFAULT initialization (inference.py:123-135) checks DEVICE env var
+# - Without DEVICE=CUDA, Device.DEFAULT stays unset, falls back to CPU
+# - CPU fallback triggers clang ARM compilation which crashes or hangs
+# Fix implemented: Startup scripts now export DEVICE=CUDA before launching exo
+# - ~/scripts/start_exo_thor1.sh and start_exo_thor2.sh set DEVICE=CUDA
+# - Preemptive loading is safe to re-enable with proper environment configuration
+# Benefit: Parallel model downloads across all nodes (huge speed improvement for large models)
+node.on_opaque_status.register("preemptively_load_shard").on_next(preemptively_load_shard)
 
 last_events: dict[str, tuple[float, RepoProgressEvent]] = {}
 def throttled_broadcast(shard: Shard, event: RepoProgressEvent):
