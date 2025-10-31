@@ -108,6 +108,12 @@ class UDPDiscovery(Discovery):
     while True:
       for addr, interface_name in get_all_ip_addresses_and_interfaces():
         interface_priority, interface_type = await get_interface_priority_and_type(interface_name)
+
+        # Skip if interface type is not in allowed list (apply filter to BROADCAST)
+        if self.allowed_interface_types and interface_type not in self.allowed_interface_types:
+          if DEBUG_DISCOVERY >= 2: print(f"Skipping broadcast on {interface_name} ({addr}) - interface type {interface_type} not in allowed types {self.allowed_interface_types}")
+          continue
+
         message = json.dumps({
           "type": "discovery",
           "node_id": self.node_id,
@@ -128,7 +134,7 @@ class UDPDiscovery(Discovery):
           except AttributeError:
             pass
           sock.bind((addr, 0))
-          
+
           transport, _ = await asyncio.get_event_loop().create_datagram_endpoint(
             lambda: BroadcastProtocol(message, self.broadcast_port, addr),
             sock=sock

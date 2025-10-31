@@ -298,6 +298,10 @@ async def get_interface_priority_and_type(ifname: str) -> Tuple[int, str]:
   if ifname.startswith(('tb', 'nx', 'ten')):
     return (5, "Thunderbolt")
 
+  # High-speed ethernet (mgbe = Multi-Gigabit Ethernet on Jetson Thor)
+  if ifname.startswith('mgbe'):
+    return (5, "High-Speed Ethernet")
+
   # Regular ethernet detection
   if ifname.startswith(('eth', 'en')) and not ifname.startswith(('en1', 'en0')):
     return (4, "Ethernet")
