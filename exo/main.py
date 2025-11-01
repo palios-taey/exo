@@ -105,6 +105,7 @@ parser.add_argument("--tailnet-name", type=str, default=None, help="Tailnet name
 parser.add_argument("--node-id-filter", type=str, default=None, help="Comma separated list of allowed node IDs (only for UDP and Tailscale discovery)")
 parser.add_argument("--interface-type-filter", type=str, default=None, help="Comma separated list of allowed interface types (only for UDP discovery)")
 parser.add_argument("--system-prompt", type=str, default=None, help="System prompt for the ChatGPT API")
+parser.add_argument("--static-peers", type=str, default=None, help="JSON array of static peers (bypasses UDP discovery): '[{\"peer_id\":\"thor1\",\"address\":\"192.168.10.1\",\"port\":52415}]'")
 args = parser.parse_args()
 print(f"Selected inference engine: {args.inference_engine}")
 
@@ -139,6 +140,17 @@ if DEBUG >= 0:
 allowed_node_ids = args.node_id_filter.split(',') if args.node_id_filter else None
 allowed_interface_types = args.interface_type_filter.split(',') if args.interface_type_filter else None
 
+# Parse static peers JSON if provided
+import json
+static_peers = None
+if args.static_peers:
+  try:
+    static_peers = json.loads(args.static_peers)
+    if DEBUG >= 1: print(f"Static peers configured: {static_peers}")
+  except json.JSONDecodeError as e:
+    print(f"Error parsing --static-peers JSON: {e}")
+    static_peers = None
+
 if args.discovery_module == "udp":
   discovery = UDPDiscovery(
     args.node_id,
@@ -148,7 +160,8 @@ if args.discovery_module == "udp":
     lambda peer_id, address, description, device_capabilities: GRPCPeerHandle(peer_id, address, description, device_capabilities),
     discovery_timeout=args.discovery_timeout,
     allowed_node_ids=allowed_node_ids,
-    allowed_interface_types=allowed_interface_types
+    allowed_interface_types=allowed_interface_types,
+    static_peers=static_peers
   )
 elif args.discovery_module == "tailscale":
   discovery = TailscaleDiscovery(
