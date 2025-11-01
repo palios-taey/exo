@@ -560,7 +560,10 @@ class Node:
         continue
 
       try:
-        other_topology = await asyncio.wait_for(peer.collect_topology(visited, max_depth=max_depth - 1), timeout=5.0)
+        # AI Native Fix: Increased timeout from 5.0s to 30.0s for large models (70B+)
+        # 5s timeout insufficient for 80-layer distributed coordination across nodes
+        # See: research/thor_uma/topology_timeout_fix.md
+        other_topology = await asyncio.wait_for(peer.collect_topology(visited, max_depth=max_depth - 1), timeout=30.0)
         if DEBUG >= 2: print(f"Collected topology from: {peer.id()}: {other_topology}")
         next_topology.merge(peer.id(), other_topology)
       except Exception as e:
