@@ -221,7 +221,9 @@ class Node:
     if not shard.is_first_layer():
       if DEBUG >= 2: print(f"[{request_id}] forwarding to next shard: {base_shard=} {shard=} {prompt=}")
       self.outstanding_requests[request_id] = "waiting"
-      resp = await self.forward_prompt(shard, prompt, request_id, 0, inference_state)
+      # EDISON-3 FIX: Use full model shard for routing computation
+      full_model_shard = Shard(shard.model_id, 0, shard.n_layers - 1, shard.n_layers)
+      resp = await self.forward_prompt(full_model_shard, prompt, request_id, 0, inference_state)
       return None
     else:
       self.outstanding_requests[request_id] = "processing"
@@ -246,7 +248,9 @@ class Node:
       if request_id is None:
         request_id = str(uuid.uuid4())
       self.outstanding_requests[request_id] = "waiting"
-      loss = await self.forward_example(shard, example, target, length, train, request_id, 0) 
+      # EDISON-3 FIX: Use full model shard for routing computation
+      full_model_shard = Shard(shard.model_id, 0, shard.n_layers - 1, shard.n_layers)
+      loss = await self.forward_example(full_model_shard, example, target, length, train, request_id, 0)
     return loss
 
   async def coordinate_save(
@@ -341,7 +345,9 @@ class Node:
           self.outstanding_requests[request_id] = "preprocessing"
           step, _ = await self.inference_engine.infer_tensor(request_id, shard, example)
           self.outstanding_requests[request_id] = "waiting"
-          loss, backgrad = await self.forward_example(shard, step, target, length, train, request_id, self.get_partition_index(offset = 1))
+          # EDISON-3 FIX: Use full model shard for routing computation
+          full_model_shard = Shard(shard.model_id, 0, shard.n_layers - 1, shard.n_layers)
+          loss, backgrad = await self.forward_example(full_model_shard, step, target, length, train, request_id, self.get_partition_index(offset = 1))
           self.outstanding_requests[request_id] = "training"
           partial_loss, grad = await self.inference_engine.train(request_id, shard, example, backgrad, length, loss="back_gradient")
         self.outstanding_requests.pop(request_id)
@@ -357,7 +363,9 @@ class Node:
           self.outstanding_requests[request_id] = "preprocessing"
           step, _ = await self.inference_engine.infer_tensor(request_id, shard, example)
           self.outstanding_requests[request_id] = "waiting"
-          loss = await self.forward_example(shard, step, target, length, train, request_id, self.get_partition_index(offset = 1))
+          # EDISON-3 FIX: Use full model shard for routing computation
+          full_model_shard = Shard(shard.model_id, 0, shard.n_layers - 1, shard.n_layers)
+          loss = await self.forward_example(full_model_shard, step, target, length, train, request_id, self.get_partition_index(offset = 1))
         self.outstanding_requests.pop(request_id)
         return loss
     except Exception as e:
