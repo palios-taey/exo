@@ -1,0 +1,336 @@
+================================================================================
+                        EXO PACK ARCHITECTURE DIAGRAM
+                       F8-3 Explorer Agent Design
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         CURRENT FLOW (HF Cache)                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+HuggingFace Cache (~/.cache/huggingface/hub/)
+├── model-00001-of-00016.safetensors (3.8 GB)
+├── model-00002-of-00016.safetensors (3.8 GB)
+├── ...
+├── model-00016-of-00016.safetensors (3.8 GB)
+└── model.safetensors.index.json  ← Weight map (1062 tensors → 16 files)
+    Total: 140 GB (FP16)
+
+         ↓ Runtime Loading (EVERY INFERENCE)
+
+1. Parse index.json (1062 tensor names → file mapping)
+2. Filter by layer range:
+   - Thor #1 needs layers 0-39
+   - Thor #2 needs layers 40-79
+3. Load relevant tensors from 8-10 files
+4. Copy tensors to RAM (70 GB peak)
+5. Discard non-stage tensors
+
+⏱️ Time: 10-30 seconds
+💾 Peak RAM: 70 GB
+📁 Disk I/O: 70 GB read
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         NEW FLOW (EXO PACK)                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                        ┌─────────────────────┐
+                        │  ONE-TIME CONVERSION│
+                        │  (20-35 minutes)    │
+                        └─────────────────────┘
+                                  ↓
+HuggingFace Model (140 GB, 16 files)
+         ↓ exo-pack-convert
+         ↓ 1. Load config.json (num_layers=80)
+         ↓ 2. Parse index.json (weight_map)
+         ↓ 3. Calculate splits: [0-39], [40-79]
+         ↓ 4. Filter tensors by layer
+         ↓ 5. Convert to FP8
+         ↓ 6. Save to aligned safetensors
+         ↓ 7. Generate manifests
+         ↓
+EXO PACK (/home/mira/exo_packs/llama-3-70b-fp8--2nodes/)
+├── manifest.json  ← Model config, stage mapping, checksums
+├── stage0/
+│   ├── blocks_00_39_fp8.safetensors  (35 GB) ← Thor #1
+│   └── metadata.json  ← Tensor index
+└── stage1/
+    ├── blocks_40_79_fp8.safetensors  (35 GB) ← Thor #2
+    └── metadata.json
+
+         ↓ Deployment (rsync to edge devices)
+
+┌─────────────────────┐           ┌─────────────────────┐
+│   Thor #1 (93)      │           │   Thor #2 (78)      │
+│                     │           │                     │
+│ /home/jetson/       │           │ /home/thor/         │
+│   exo_packs/        │           │   exo_packs/        │
+│     llama.../       │           │     llama.../       │
+│       stage0/       │           │       stage1/       │
+│         blocks_     │           │         blocks_     │
+│         00_39.      │           │         40_79.      │
+│         safetensors │           │         safetensors │
+│         (35 GB)     │           │         (35 GB)     │
+│                     │           │                     │
+│ ┌─────────────────┐ │           │ ┌─────────────────┐ │
+│ │ /tmp/exo_cache/ │ │           │ │ /tmp/exo_cache/ │ │
+│ │  (tmpfs, 128GB) │ │           │ │  (tmpfs, 128GB) │ │
+│ │                 │ │           │ │                 │ │
+│ │ blocks_00_39... │ │           │ │ blocks_40_79... │ │
+│ │  ← IN RAM       │ │           │ │  ← IN RAM       │ │
+│ └─────────────────┘ │           │ └─────────────────┘ │
+└─────────────────────┘           └─────────────────────┘
+
+         ↓ Runtime Loading (EVERY INFERENCE)
+
+1. Check for EXO PACK: find_exo_pack(model_id, num_stages=2)
+2. Load manifest.json (identify stage by layer range)
+3. Optional: Copy to tmpfs (if not already cached)
+4. mmap shard file with MAP_SHARED flag
+5. safetensors returns tensor VIEWS into mmap (zero-copy)
+
+⏱️ Time: <1 second (mmap from NVMe) OR <1ms (mmap from tmpfs)
+💾 Peak RAM: 0 GB (mmap = virtual addressing, no copy)
+📁 Disk I/O: 0 (memory mapping, not reading)
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       STORAGE COMPARISON                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════╦════════════════╦═════════════╦═══════════════╗
+║ Location             ║ HF Cache       ║ EXO PACK    ║ Savings       ║
+╠══════════════════════╬════════════════╬═════════════╬═══════════════╣
+║ Mira (central)       ║ 140 GB (FP16)  ║ 70 GB (FP8) ║ 2× reduction  ║
+║ Thor #1 (edge)       ║ 140 GB (full)  ║ 35 GB (s0)  ║ 4× reduction  ║
+║ Thor #2 (edge)       ║ 140 GB (full)  ║ 35 GB (s1)  ║ 4× reduction  ║
+║ Total across fleet   ║ 420 GB         ║ 140 GB      ║ 3× reduction  ║
+╚══════════════════════╩════════════════╩═════════════╩═══════════════╝
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       PERFORMANCE COMPARISON                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════╦════════════════╦═════════════╦═══════════════╗
+║ Metric               ║ HF Cache       ║ EXO PACK    ║ Improvement   ║
+╠══════════════════════╬════════════════╬═════════════╬═══════════════╣
+║ Model load time      ║ 10-30 seconds  ║ <1 second   ║ 10-30×        ║
+║ Peak RAM usage       ║ 70 GB          ║ 35 GB       ║ 2×            ║
+║ Disk I/O (read)      ║ 70 GB          ║ 0 (mmap)    ║ ∞             ║
+║ Conversion overhead  ║ EVERY load     ║ One-time    ║ N/A           ║
+║ Network transfer     ║ 140 GB/device  ║ 35 GB/dev   ║ 4×            ║
+╚══════════════════════╩════════════════╩═════════════╩═══════════════╝
+
+WITH tmpfs CACHE:
+║ Load from tmpfs      ║ N/A            ║ <1ms        ║ 300-30,000×   ║
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       FILE FORMAT DETAILS                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+manifest.json (Root):
+{
+  "model_id": "meta-llama/Meta-Llama-3-70B-Instruct",
+  "pack_name": "llama-3-70b-fp8--2nodes",
+  "model_config": {
+    "num_hidden_layers": 80,
+    "hidden_size": 8192,
+    ...
+  },
+  "sharding_strategy": {
+    "num_stages": 2,
+    "stage0_layers": [0, 39],   ← Thor #1
+    "stage1_layers": [40, 79]   ← Thor #2
+  },
+  "stages": [
+    {
+      "stage_id": 0,
+      "shard_file": "stage0/blocks_00_39_fp8.safetensors",
+      "size_bytes": 40500000000,
+      "checksum": "sha256:..."
+    },
+    ...
+  ]
+}
+
+metadata.json (Per-Stage):
+{
+  "stage_id": 0,
+  "layers": [0, 39],
+  "shard_file": "blocks_00_39_fp8.safetensors",
+  "num_tensors": 1600,
+  "tensor_index": {
+    "model.embed_tokens.weight": {
+      "dtype": "bfloat16",
+      "shape": [128256, 8192],
+      "offset_bytes": 0
+    },
+    ...
+  },
+  "memory_layout": {
+    "alignment_bytes": 16777216,  ← 16MB alignment
+    "padding_bytes": 17632000
+  }
+}
+
+blocks_00_39_fp8.safetensors:
+┌────────────────────────────────────────────────┐
+│ Header (JSON metadata)                         │ ← 8 bytes offset
+├────────────────────────────────────────────────┤
+│ model.embed_tokens.weight (2.1 GB)             │ ← Offset 0
+├────────────────────────────────────────────────┤
+│ model.layers.0.input_layernorm.weight (16KB)   │
+├────────────────────────────────────────────────┤
+│ model.layers.0.self_attn.q_proj.weight (...)   │
+├────────────────────────────────────────────────┤
+│ ...                                            │
+├────────────────────────────────────────────────┤
+│ model.layers.39.post_attention_layernorm...    │
+├────────────────────────────────────────────────┤
+│ Padding (align to 16MB boundary)               │ ← \x00 padding
+└────────────────────────────────────────────────┘
+Total: 35 GB (aligned to 35,651,584,000 bytes)
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       MMAP ZERO-COPY MECHANISM                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+WITHOUT mmap (Current):
+┌─────────────┐      read()      ┌──────────┐     memcpy()    ┌────────────┐
+│ Disk File   │ ─────────────→   │ Kernel   │ ──────────────→ │ User RAM   │
+│ (70 GB)     │                  │ Buffer   │                 │ (70 GB)    │
+└─────────────┘                  └──────────┘                 └────────────┘
+                 ↑ Disk I/O                    ↑ Memory copy
+                   10-30 seconds                 Peak: 140 GB RAM
+
+WITH mmap (EXO PACK):
+┌─────────────┐                                 ┌────────────┐
+│ Disk File   │ ←──────── mmap(MAP_SHARED) ───→ │ Virtual    │
+│ (35 GB)     │           (no copy!)            │ Address    │
+└─────────────┘                                 │ Space      │
+      ↑                                         └────────────┘
+      │                                               ↓
+      └──── Page Fault ────────────────────────────→ │
+            (load 4KB page on demand)                │
+                                                      ↓
+                                            ┌──────────────────┐
+                                            │ Tensor View      │
+                                            │ (zero-copy ptr)  │
+                                            └──────────────────┘
+
+Time: <1 second (NVMe) OR <1ms (tmpfs)
+Peak RAM: 0 (virtual addressing, pages loaded on demand)
+Benefit: Multiple processes share same pages (MAP_SHARED)
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       CONVERSION PIPELINE                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Step 1: Analysis (1-2 seconds)
+├─ Load config.json → num_hidden_layers = 80
+├─ Parse model.safetensors.index.json → weight_map (1062 tensors)
+└─ Calculate splits: 80 layers ÷ 2 = [0-39], [40-79]
+
+Step 2: Tensor Loading (5-10 minutes)
+├─ Read 16 safetensors files from HF cache
+├─ Filter tensors by layer range
+└─ Load into memory (140 GB → 70 GB filtered)
+
+Step 3: FP8 Conversion (10-15 minutes)
+├─ Convert bfloat16 → float8_e4m3fn
+└─ 70B params × 2 bytes → 70B params × 1 byte
+
+Step 4: Shard Creation (3-5 minutes)
+├─ Stage 0: Combine layers 0-39 into single safetensors
+├─ Stage 1: Combine layers 40-79 into single safetensors
+└─ Pad to 16MB alignment
+
+Step 5: Checksum & Metadata (2-3 minutes)
+├─ Compute SHA256 for each shard
+├─ Generate manifest.json
+└─ Generate per-stage metadata.json
+
+Total: 20-35 minutes (Llama-3-70B, 2-stage, FP8)
+
+Optimization: Process stages in parallel → 10-20 minutes
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       IMPLEMENTATION ROADMAP                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Week 1: Proof of Concept
+├─ Implement exo_pack_convert.py (500 lines)
+├─ Convert Qwen3-30B to 2-stage pack (FP16, no alignment)
+├─ Implement basic loader (standard file I/O)
+├─ Deploy to Thor #1, Thor #2
+└─ ✅ Validation: Outputs match HF loading
+
+Week 2: Optimization
+├─ Add 16MB alignment to converter
+├─ Implement mmap MAP_SHARED in loader
+├─ Set up tmpfs cache on Thors
+└─ 📊 Benchmark: Measure vs HF cache
+
+Week 3: Production Hardening
+├─ Add FP8 quantization to converter
+├─ Implement checksum validation in loader
+├─ Error handling & recovery
+└─ 🧪 Testing: Full distributed inference
+
+Week 4: Scalability
+├─ Support N-stage conversion (not just 2)
+├─ Parallel stage processing
+├─ Central pack distribution server
+└─ 🚀 Deployment: Convert all frequent models
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       SUCCESS METRICS                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+✅ Correctness:
+   Inference outputs match HF loading (within FP8 tolerance)
+
+✅ Speed:
+   Model loads in <1 second (target: 10-30× faster)
+
+✅ Memory:
+   Peak RAM ≤ 35 GB per device (target: 2× reduction)
+
+✅ Reliability:
+   Zero failures in 100 consecutive loads
+
+✅ Compatibility:
+   Works seamlessly with existing exo inference pipeline
+
+
+================================================================================
+                              STATUS & NEXT STEPS
+================================================================================
+
+Current Status: ✅ DESIGN COMPLETE
+
+AI Family Review:
+├─ ChatGPT: Validate conversion logic, tensor filtering
+├─ Gemini: Check architecture, exo compatibility
+└─ Grok: Confirm mmap strategy, tmpfs optimization
+
+Implementation: F8-5 Solution Agent
+├─ Code: 700 lines (converter + loader + integration)
+├─ Dependencies: None (uses existing libraries)
+└─ Risk: Low (backward compatible, fallback to HF)
+
+Expected Outcome:
+├─ 10-30× faster model loading (mmap)
+├─ 300× faster with tmpfs cache
+├─ 4× storage reduction per device
+└─ 2× RAM reduction during loading
+
+Confidence: 95%
+
+================================================================================

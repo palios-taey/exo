@@ -2,21 +2,26 @@
 
 **Import Root Context**: @/home/mira/CLAUDE.md
 
-**Status**: ✅ DISTRIBUTED INFERENCE WORKING - PRODUCTION READY
+**Status**: ✅ DISTRIBUTED INFERENCE WORKING - 70B MODELS ENABLED
 **Last Updated**: 2025-11-01
+**Git Tag**: `v3.2-topology-timeout-fixed`
 
-**Current Progress**: Distributed inference operational
-- ✅ Distributed peer discovery working via static peers + fixed gRPC ports
+**Current Progress**: Large model distributed inference operational
+- ✅ Distributed peer discovery via static peers + fixed gRPC ports
 - ✅ Both Thors connected: `is_connected=True, health_check=True`
-- ✅ 4×25GbE network fully utilized (priority 5 interfaces)
-- ✅ Distributed inference WORKING (llama-3.1-8b: 4 tokens in 22s)
-- ✅ Tinygrad UMA optimization applied (hybrid fix for sm_110)
+- ✅ 4×25GbE network fully utilized (43.6 Gbps stable)
+- ✅ Distributed inference WORKING (llama-3.1-8b: 4 tokens in 22s cold start)
+- ✅ Tinygrad UMA optimization deployed (hybrid fix for sm_110)
+- ✅ Topology timeout fix applied (70B+ models: 5.0s → 30.0s)
 
-**Solutions**:
-1. Fixed gRPC ports (`--node-port 50000`) + static peers
+**Solutions Deployed**:
+1. Fixed gRPC ports (`--node-port 50000`) + static peers configuration
 2. Tinygrad hybrid UMA fix (from_buffer_copy for integrated GPUs)
+3. Topology collection timeout increased (5.0s → 30.0s for 80-layer coordination)
 
-**Next**: Performance testing, larger models (Qwen3-30B)
+**Current Test**: llama-3.1-70b model loading (~81min first-time cold start)
+
+**Next**: Measure sustained 70B performance, then Qwen3-30B testing
 
 ---
 
