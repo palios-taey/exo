@@ -250,9 +250,13 @@ class TransformerShard:
   ):
     shardrange = range(shard.start_layer, shard.end_layer + 1)
     self.layers = [layer for layer, n in zip(base.layers, range(shard.n_layers)) if n in shardrange]
-    self.norm = base.norm 
+    self.norm = base.norm
     self.tok_embeddings = base.tok_embeddings
-    self.embed = (lambda x: self.tok_embeddings(x)) if shard.is_first_layer() else (lambda x: x)
+    # AI Native Fix: Replicate embedding layer on all shards for distributed autoregressive decode
+    # During generation, each shard needs to embed token IDs locally for subsequent tokens
+    # Root cause: After first token generation, non-first shards receive token_id (not activations)
+    # and must embed it before processing through their layers. Original conditional prevented this.
+    self.embed = lambda x: self.tok_embeddings(x)
     self.output = base.output
     self.post = (lambda x: self.output(x)) if shard.is_last_layer() else (lambda x: x)
     self.max_context = base.max_context
