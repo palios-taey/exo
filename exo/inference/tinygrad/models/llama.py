@@ -5,8 +5,12 @@ from collections import OrderedDict
 
 
 # https://github.com/facebookresearch/llama/blob/1076b9c51c77ad06e9d7ba8a4c6df775741732bd/llama/model.py#L47
-def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0, dtype=dtypes.half, rope_scaling: Optional[Dict[str, float]] = None) -> Tensor:
-  freqs = 1.0/(theta**(Tensor.arange(0, dim, 2)[:(dim // 2)]/dim))
+def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0, dtype=dtypes.half, rope_scaling: Optional[Dict[str, float]] = None, device: str = None) -> Tensor:
+  # FIX: Explicit device parameter to prevent CPU/CUDA mismatch during apply_rotary_emb
+  # Root cause: Without device=, tensors created on CPU while model tensors on CUDA
+  # This causes "CPU compilation not supported" error in mixed-device operations
+  if device is None: device = Device.DEFAULT
+  freqs = 1.0/(theta**(Tensor.arange(0, dim, 2, device=device)[:(dim // 2)]/dim))
 
   if rope_scaling:
     factor = rope_scaling.get('factor', 1.0)
@@ -18,7 +22,7 @@ def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0, dtype=dtype
     freqs[dim // 4:] = freqs[dim // 4:].contiguous()*high_freq_factor
     freqs *= (original_max_pos_emb/end)**(1.0/factor)
 
-  freqs = Tensor.arange(end).unsqueeze(dim=1)*freqs.unsqueeze(dim=0)
+  freqs = Tensor.arange(end, device=device).unsqueeze(dim=1)*freqs.unsqueeze(dim=0)
   # TODO: move dtype outside this
   return Tensor.stack(freqs.cos().cast(dtype), freqs.sin().cast(dtype), dim=-1).reshape(1, end, 1, dim // 2, 2)
 
@@ -201,7 +205,9 @@ class Transformer:
     if tie_word_embeddings:
       self.output.weight = self.tok_embeddings.weight
     self.max_context = max_context
-    self.freqs_cis = precompute_freqs_cis(dim // n_heads, self.max_context*2, rope_theta, rope_scaling=rope_scaling).contiguous()
+    # FIX: Pass device='CUDA' to ensure freqs_cis created on same device as model
+    # Prevents CPU/CUDA mismatch error in apply_rotary_emb during attention computation
+    self.freqs_cis = precompute_freqs_cis(dim // n_heads, self.max_context*2, rope_theta, rope_scaling=rope_scaling, device='CUDA').contiguous()
     self.forward_jit = TinyJit(self.forward_base) if jit else None
     self.shard = shard
 
