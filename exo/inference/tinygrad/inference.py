@@ -1,8 +1,9 @@
 from pathlib import Path
-# NVRTC MONKEY-PATCH for Jetson Thor Blackwell GPU compatibility  
+# NVRTC MONKEY-PATCH for Jetson Thor Blackwell GPU compatibility
 # This must run BEFORE any tinygrad CUDA modules are imported
 import sys
 import ctypes
+import os
 
 # NVRTC monkey-patch REMOVED for Agent 9 deployment
 # Agent 9's NVPTXCompilerV2 REQUIRES functional NVRTC API for CUDA C → PTX compilation
@@ -128,6 +129,8 @@ os.environ['TINYGRAD_MMAP'] = '1'
 # Optional: FP16 loading for 2× speedup (disabled to preserve accuracy)
 # os.environ['TINYGRAD_DTYPE'] = 'float16'
 
+# NOTE: JIT=0 and BEAM=0 are set at top of file (line 18-19) BEFORE tinygrad imports
+
 # ============================================================================
 # BLACKWELL DEVICE FORCING: Set CUDA as default BEFORE any operations
 # ============================================================================
@@ -251,7 +254,8 @@ def build_transformer(model_path: Path, shard: Shard, model_size="8B", device=No
     weights = fix_bf16_and_fp8(weights)
 
     with Context(BEAM=0):
-      load_state_dict(model, weights, strict=False, consume=True)  # consume=True reduces memory pressure
+      load_state_dict(model, weights, strict=False, consume=True, realize=False)  # consume=True reduces memory pressure, realize=False enables lazy mmap loading
+
       model = Qwen3MoETransformerShard(shard, model)
 
     return model
@@ -273,7 +277,8 @@ def build_transformer(model_path: Path, shard: Shard, model_size="8B", device=No
 
     with Context(BEAM=0):
       # replace weights in model
-      load_state_dict(model, weights, strict=False, consume=True)  # consume=True reduces memory pressure
+      load_state_dict(model, weights, strict=False, consume=True, realize=False)  # consume=True reduces memory pressure, realize=False enables lazy mmap loading
+
       model = TransformerShard(shard, model)
 
     return model
