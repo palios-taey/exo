@@ -2,17 +2,21 @@
 
 **Import Root Context**: @/home/mira/CLAUDE.md
 
-**Status**: ✅ PEER DISCOVERY WORKING - DISTRIBUTED INFERENCE READY
+**Status**: ✅ DISTRIBUTED INFERENCE WORKING - PRODUCTION READY
 **Last Updated**: 2025-11-01
 
-**Current Progress**: Peer discovery solved
+**Current Progress**: Distributed inference operational
 - ✅ Distributed peer discovery working via static peers + fixed gRPC ports
 - ✅ Both Thors connected: `is_connected=True, health_check=True`
 - ✅ 4×25GbE network fully utilized (priority 5 interfaces)
-- ⚠️ Distributed inference not yet tested (model loading hangs)
+- ✅ Distributed inference WORKING (llama-3.1-8b: 4 tokens in 22s)
+- ✅ Tinygrad UMA optimization applied (hybrid fix for sm_110)
 
-**Solution**: Use `--node-port 50000` to force fixed gRPC ports + static peers configuration
-**Next**: Debug model loading/inference (separate issue from peer discovery)
+**Solutions**:
+1. Fixed gRPC ports (`--node-port 50000`) + static peers
+2. Tinygrad hybrid UMA fix (from_buffer_copy for integrated GPUs)
+
+**Next**: Performance testing, larger models (Qwen3-30B)
 
 ---
 
