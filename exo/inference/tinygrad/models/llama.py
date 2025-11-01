@@ -113,7 +113,13 @@ class TransformerBlock:
 
   def __call__(self, x: Tensor, start_pos: Union[Variable, int], freqs_cis: Tensor, mask: Optional[Tensor], cache: Optional[Tensor]=None):
     h = x + self.attention(self.attention_norm(x), start_pos, freqs_cis, mask, cache=cache)
-    return (h + self.feed_forward(self.ffn_norm(h))).contiguous()
+    output = (h + self.feed_forward(self.ffn_norm(h))).contiguous()
+    # GROK DEBUG: Layer activation tracking
+    try:
+      print(f"[GROK DEBUG] Layer activation: shape={output.shape}, device={output.device}", flush=True)
+    except:
+      print(f"[GROK DEBUG] Layer activation: shape=unavailable, device=unavailable", flush=True)
+    return output
 
 
 # standard openai sampling

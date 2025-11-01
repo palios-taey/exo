@@ -130,6 +130,10 @@ class Node:
         self.buffered_token_output[request_id][0].append(token.item())
         is_finished = token.item() == self.inference_engine.tokenizer.eos_token_id or is_finished or len(self.buffered_token_output[request_id][0]) >= self.max_generate_tokens
         if DEBUG >= 2: print(f"[{request_id}] result size: {result.size}, is finished: {is_finished}, buffered tokens: {len(self.buffered_token_output[request_id][0])}")
+        # GROK DEBUG: Token generation tracking
+        token_idx = len(self.buffered_token_output[request_id][0]) - 1
+        kv_shape = inference_state.get('cache', 'None') if inference_state else 'None'
+        print(f"[GROK DEBUG] Token {token_idx}: ID={token.item()}, KV_shape={kv_shape}, Is_last_layer=True", flush=True)
         forward = token.reshape(1, -1)
         intermediate_result = [self.buffered_token_output[request_id][0][-1]]
       else:
@@ -448,7 +452,17 @@ class Node:
       if not target_peer:
         raise ValueError(f"Peer for {target_index} not found")
       if DEBUG >= 1: print(f"Sending tensor to {target_peer.id()}: {tensor}")
-      await target_peer.send_tensor(next_shard, tensor, request_id=request_id, inference_state=inference_state)
+      # GROK DEBUG: gRPC call tracking before send
+      payload_size = tensor.nbytes if hasattr(tensor, 'nbytes') else len(str(tensor))
+      queue_length = len(self.outstanding_requests)
+      print(f"[GROK DEBUG] gRPC_call: method=send_tensor, target_peer={target_peer.id()}, payload_size={payload_size}", flush=True)
+      print(f"[GROK DEBUG] Queue length: {queue_length} outstanding requests", flush=True)
+      try:
+        await target_peer.send_tensor(next_shard, tensor, request_id=request_id, inference_state=inference_state)
+        print(f"[GROK DEBUG] gRPC_call: method=send_tensor, response_status=SUCCESS", flush=True)
+      except Exception as e:
+        print(f"[GROK DEBUG] gRPC_call: method=send_tensor, response_status=FAILED, error={e}", flush=True)
+        raise
 
   def get_partition_index(self, offset: int = 0):
     if not self.partitioning_strategy:
