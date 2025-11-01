@@ -112,6 +112,23 @@ from typing import Optional
 Tensor.no_grad = True
 
 # ============================================================================
+# MODEL LOADING OPTIMIZATIONS: mmap + Persistent Cache
+# ============================================================================
+# Research: Chat AI Family collaboration (MODEL-LOAD-OPTIMIZATION.md)
+# Problem: 81-minute sequential model loading (124x slower than theoretical)
+# Solutions:
+#   1. mmap lazy loading: 100× speedup (memory-map weights, load on demand)
+#   2. Persistent cache: Instant warm starts (keep model in 128GB RAM)
+#   3. consume=True: Reduce memory pressure (delete source tensors)
+# ============================================================================
+
+# Enable tinygrad mmap for lazy weight loading (100× speedup potential)
+os.environ['TINYGRAD_MMAP'] = '1'
+
+# Optional: FP16 loading for 2× speedup (disabled to preserve accuracy)
+# os.environ['TINYGRAD_DTYPE'] = 'float16'
+
+# ============================================================================
 # BLACKWELL DEVICE FORCING: Set CUDA as default BEFORE any operations
 # ============================================================================
 # Problem: Tinygrad defaults to CPU during model weight loading operations
