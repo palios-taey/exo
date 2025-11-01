@@ -1,0 +1,34 @@
+--- ops_cuda.py.original	2025-11-01 00:00:00.000000000 +0000
++++ ops_cuda.py.patched	2025-11-01 15:38:00.000000000 +0000
+@@ -71,10 +71,15 @@
+       else: check(cuda.cuMemFree_v2(opaque))
+     except (TypeError, AttributeError): pass
+   def _copyin(self, dest, src:memoryview):
+     check(cuda.cuCtxSetCurrent(self.dev.context))
++    # AI Native Fix: On integrated GPUs (sm_101), use synchronous copy
++    # to avoid pinned memory exhaustion during large model loading
++    if self.dev.is_integrated:
++      check(cuda.cuMemcpyHtoD_v2(dest, mv_address(src), len(src)))
++      return
++    # Original async path for discrete GPUs
+     host_mem = self.alloc(len(src), BufferSpec(host=True))
+     self.dev.pending_copyin.append((host_mem, len(src), BufferSpec(host=True)))
+     ctypes.memmove(host_mem, mv_address(src), len(src))
+     check(cuda.cuMemcpyHtoDAsync_v2(dest, host_mem, len(src), None))
+   def _copyout(self, dest:memoryview, src):
+@@ -110,10 +115,14 @@
+       check(cuda.cuCtxEnablePeerAccess(dev.context, 0))
+       CUDADevice.peer_access = True
+ 
+     self.arch = f"sm_{major.value}{minor.value}"
+     self.pending_copyin: list[tuple[int, int, BufferSpec|None]] = []
++    
++    # AI Native: Detect integrated GPU for unified memory optimization
++    check(cuda.cuDeviceGetAttribute(ctypes.byref(integrated := ctypes.c_int()), 
++          cuda.CU_DEVICE_ATTRIBUTE_INTEGRATED, device_id))
++    self.is_integrated = (integrated.value == 1)
+     CUDADevice.devices.append(self)
+ 
+     from tinygrad.runtime.graph.cuda import CUDAGraph
+     super().__init__(device, CUDAAllocator(self), PTXRenderer(self.arch) if PTX else CUDARenderer(self.arch),
+                      PTXCompiler(self.arch) if PTX else CUDACompiler(self.arch), functools.partial(CUDAProgram, self), None if MOCKGPU else CUDAGraph)
