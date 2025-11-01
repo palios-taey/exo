@@ -295,7 +295,7 @@ class TinygradDynamicShardInferenceEngine(InferenceEngine):
     self.states = OrderedDict()
     self.executor = _executor
 
-  def poll_state(self, x, request_id: str, max_states=2, distributed_start_pos: Optional[int] = None):
+  def poll_state(self, x, request_id: str, max_states=2, distributed_start_pos: Optional[int] = None, distributed_cache: Optional[list] = None):
     if request_id not in self.states:
       if len(self.states) >= max_states:
         self.states.popitem(last=False)
@@ -309,6 +309,12 @@ class TinygradDynamicShardInferenceEngine(InferenceEngine):
       if DEBUG >= 2:
         print(f"[SYNC] Updating start_pos from {state.start} to {distributed_start_pos}")
       state.start = distributed_start_pos
+
+    # Synchronize cache from distributed inference
+    if distributed_cache is not None:
+      if DEBUG >= 2:
+        print(f"[SYNC] Updating cache from peer (received {len(distributed_cache)} positions)")
+      state.cache = distributed_cache
 
     # Reset state if start_pos exceeds max_context to prevent assertion errors
     # This handles cases where conversation exceeds model's context window
@@ -348,28 +354,34 @@ class TinygradDynamicShardInferenceEngine(InferenceEngine):
   async def infer_tensor(self, request_id: str, shard: Shard, input_data: np.ndarray, inference_state: Optional[dict] = None) -> tuple[np.ndarray, Optional[dict]]:
     await self.ensure_shard(shard)
 
-    # Import start_pos from distributed state
+    # Import start_pos and cache from distributed state
     distributed_start_pos = None
+    distributed_cache = None
     if inference_state and 'start_pos' in inference_state:
       distributed_start_pos = inference_state['start_pos']
       if DEBUG >= 2:
         print(f"[IMPORT] Received start_pos={distributed_start_pos} from peer")
+    if inference_state and 'cache' in inference_state:
+      distributed_cache = inference_state['cache']
+      if DEBUG >= 2:
+        print(f"[IMPORT] Received cache from peer ({len(distributed_cache)} positions)")
 
     def wrap_infer():
       x = Tensor(input_data)
       h = self.model.embed(x)
-      state = self.poll_state(h, request_id, distributed_start_pos=distributed_start_pos)
+      state = self.poll_state(h, request_id, distributed_start_pos=distributed_start_pos, distributed_cache=distributed_cache)
       out = self.model.forward(h, **state)
       self.states[request_id].start += x.shape[1]
       return out.numpy()
     output_data = await asyncio.get_running_loop().run_in_executor(self.executor, wrap_infer)
 
-    # Export updated start_pos to distributed state
+    # Export updated start_pos and cache to distributed state
     if inference_state is None:
       inference_state = {}
     inference_state['start_pos'] = self.states[request_id].start
+    inference_state['cache'] = self.states[request_id].cache
     if DEBUG >= 2:
-      print(f"[EXPORT] Sending start_pos={self.states[request_id].start} to peer")
+      print(f"[EXPORT] Sending start_pos={self.states[request_id].start} and cache ({len(self.states[request_id].cache)} positions) to peer")
 
     return output_data, inference_state
 
