@@ -24,6 +24,19 @@ class InferenceEngine(ABC):
     pass
 
   @abstractmethod
+  async def embed_token(self, shard: Shard, token_id: np.ndarray) -> np.ndarray:
+    """Embed single token ID into activation space for autoregressive decode.
+
+    Args:
+      shard: Model shard containing embedding layer
+      token_id: Token ID to embed (shape: 1,1)
+
+    Returns:
+      Embedded activation tensor (shape: 1, 1, dim)
+    """
+    pass
+
+  @abstractmethod
   async def infer_tensor(self, request_id: str, shard: Shard, input_data: np.ndarray, inference_state: Optional[dict] = None) -> tuple[np.ndarray, Optional[dict]]:
     pass
 
