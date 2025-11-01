@@ -340,7 +340,35 @@ class TinygradDynamicShardInferenceEngine(InferenceEngine):
     await self.ensure_shard(shard)
     tokens = await asyncio.get_running_loop().run_in_executor(self.executor, self.tokenizer.decode, tokens)
     return tokens
-  
+
+  async def embed_token(self, shard: Shard, token_id: np.ndarray) -> np.ndarray:
+    """Embed single token ID into activation space for autoregressive decode.
+
+    This method MUST be called before forwarding tokens between devices in distributed
+    inference. Without embedding, raw token IDs are forwarded, causing type mismatches.
+
+    Args:
+      shard: Model shard containing embedding layer
+      token_id: Token ID to embed (shape: 1,1)
+
+    Returns:
+      Embedded activation tensor (shape: 1, 1, dim)
+    """
+    await self.ensure_shard(shard)
+
+    def wrap_embed():
+      # Convert numpy array to Tensor
+      x = Tensor(token_id, dtype=dtypes.int32)
+
+      # Call model's embed() method to get activation
+      # This works for both llama and qwen models (both have .embed() method)
+      h = self.model.embed(x)
+
+      # Return as numpy array for network transmission
+      return h.numpy()
+
+    return await asyncio.get_running_loop().run_in_executor(self.executor, wrap_embed)
+
   async def load_checkpoint(self, shard: Shard, path: str):
     await self.ensure_shard(shard)
     state_dict = safe_load(path)

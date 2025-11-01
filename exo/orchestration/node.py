@@ -134,7 +134,13 @@ class Node:
         token_idx = len(self.buffered_token_output[request_id][0]) - 1
         kv_shape = inference_state.get('cache', 'None') if inference_state else 'None'
         print(f"[GROK DEBUG] Token {token_idx}: ID={token.item()}, KV_shape={kv_shape}, Is_last_layer=True", flush=True)
-        forward = token.reshape(1, -1)
+
+        # EDISON-2 FIX: Embed token before forwarding to peer device
+        # Problem: Raw token_id forwarded causes type mismatch (int vs float activation)
+        # Solution: Call embed_token() to convert token_id → embedded activation
+        token_np = token.reshape(1, -1).numpy()
+        forward = await self.inference_engine.embed_token(shard, token_np)
+
         intermediate_result = [self.buffered_token_output[request_id][0][-1]]
       else:
         forward = result
@@ -153,7 +159,11 @@ class Node:
       self.outstanding_requests.pop(request_id)
     else:
       self.outstanding_requests[request_id] = "waiting"
-      asyncio.create_task(self.forward_tensor(shard, forward, request_id, self.get_partition_index(offset = 1), inference_state))
+      # EDISON-3 FIX: Pass full model shard instead of current device's partial shard
+      # Problem: base_shard with partial layer range passed to get_current_shard()
+      # Solution: Create full-model reference shard (0 to n_layers-1) for routing
+      full_model_shard = Shard(shard.model_id, 0, shard.n_layers - 1, shard.n_layers)
+      asyncio.create_task(self.forward_tensor(full_model_shard, forward, request_id, self.get_partition_index(offset = 1), inference_state))
 
     return  np.array(self.buffered_token_output[request_id][0]) if shard.model_id != 'stable-diffusion-2-1-base' else intermediate_result
 
