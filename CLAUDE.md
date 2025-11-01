@@ -2,18 +2,17 @@
 
 **Import Root Context**: @/home/mira/CLAUDE.md
 
-**Status**: 🧪 DISTRIBUTED INFRASTRUCTURE OPERATIONAL - FP8 DTYPE MAPPING BLOCKER
-**Last Updated**: 2025-10-23 19:35 UTC
+**Status**: ✅ PEER DISCOVERY WORKING - DISTRIBUTED INFERENCE READY
+**Last Updated**: 2025-11-01
 
-**Current Progress**: 85% functional
-- ✅ Both servers start successfully
-- ✅ Edison patches active (PTX 9.0, Device.DEFAULT)
-- ✅ Peer discovery and RPC coordination working
-- ✅ Model files downloaded and accessible
-- ❌ Model loading blocked at FP8 dtype mapping
+**Current Progress**: Peer discovery solved
+- ✅ Distributed peer discovery working via static peers + fixed gRPC ports
+- ✅ Both Thors connected: `is_connected=True, health_check=True`
+- ✅ 4×25GbE network fully utilized (priority 5 interfaces)
+- ⚠️ Distributed inference not yet tested (model loading hangs)
 
-**Active Blocker**: `KeyError: 'F8_E4M3'` in tinygrad safe_dtypes dictionary
-**Next Steps**: Edison agent research + implementation (see section 11)
+**Solution**: Use `--node-port 50000` to force fixed gRPC ports + static peers configuration
+**Next**: Debug model loading/inference (separate issue from peer discovery)
 
 ---
 
