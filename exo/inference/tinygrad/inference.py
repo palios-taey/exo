@@ -98,7 +98,7 @@ from exo.inference.tinygrad.models.qwen import Qwen3MoETransformer, Qwen3MoETran
 from exo.inference.shard import Shard
 from exo.inference.tokenizers import resolve_tokenizer
 from tinygrad.nn.state import safe_save, safe_load, get_state_dict, load_state_dict
-from tinygrad import Tensor, nn, Context, TinyJit, Device
+from tinygrad import Tensor, nn, Context, TinyJit, Device, dtypes
 from exo.inference.inference_engine import InferenceEngine
 import numpy as np
 from exo.inference.tinygrad.tinygrad_helpers import concat_weights, load
