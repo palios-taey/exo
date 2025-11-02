@@ -358,8 +358,10 @@ class TinygradDynamicShardInferenceEngine(InferenceEngine):
     await self.ensure_shard(shard)
 
     def wrap_embed():
-      # Convert numpy array to Tensor
-      x = Tensor(token_id, dtype=dtypes.int32)
+      # Convert numpy array to Tensor with explicit dtype
+      # Import dtypes locally to ensure it's available in executor thread
+      from tinygrad import dtypes as tinygrad_dtypes
+      x = Tensor(token_id, dtype=tinygrad_dtypes.int32)
 
       # Call model's embed() method to get activation
       # This works for both llama and qwen models (both have .embed() method)
