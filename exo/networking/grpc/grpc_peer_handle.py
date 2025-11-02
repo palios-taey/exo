@@ -209,15 +209,19 @@ class GRPCPeerHandle(PeerHandle):
     proto_inference_state = node_service_pb2.InferenceState()
     other_data = {}
     for k, v in inference_state.items():
-      # Check for tensor types (MLX on Darwin ARM64, numpy everywhere else)
+      # Check for tensor types (MLX on Darwin ARM64, numpy everywhere else, tinygrad Tensor)
       is_tensor = False
       if HAS_MLX and isinstance(v, mx.array):
         is_tensor = True
       elif not HAS_MLX and isinstance(v, np.ndarray):
         is_tensor = True
+      elif hasattr(v, 'numpy') and callable(getattr(v, 'numpy')):
+        # Catch tinygrad Tensor objects (have .numpy() method)
+        is_tensor = True
 
       if is_tensor:
-        np_array = np.array(v)
+        # Convert to numpy array (handles tinygrad Tensor, MLX array, numpy array)
+        np_array = np.array(v) if not isinstance(v, np.ndarray) else v
         tensor_data = node_service_pb2.Tensor(tensor_data=np_array.tobytes(), shape=list(np_array.shape), dtype=str(np_array.dtype))
         proto_inference_state.tensor_data[k].CopyFrom(tensor_data)
       elif isinstance(v, list) and len(v) > 0:
@@ -228,11 +232,15 @@ class GRPCPeerHandle(PeerHandle):
           is_tensor_list = all(isinstance(item, mx.array) for item in v)
         elif not HAS_MLX and isinstance(first_item, np.ndarray):
           is_tensor_list = all(isinstance(item, np.ndarray) for item in v)
+        elif hasattr(first_item, 'numpy') and callable(getattr(first_item, 'numpy')):
+          # List of tinygrad Tensors
+          is_tensor_list = all(hasattr(item, 'numpy') and callable(getattr(item, 'numpy')) for item in v)
 
         if is_tensor_list:
           tensor_list = node_service_pb2.TensorList()
           for tensor in v:
-            np_array = np.array(tensor)
+            # Convert to numpy (handles tinygrad Tensor, MLX array, numpy array)
+            np_array = np.array(tensor) if not isinstance(tensor, np.ndarray) else tensor
             tensor_data = node_service_pb2.Tensor(tensor_data=np_array.tobytes(), shape=list(np_array.shape), dtype=str(np_array.dtype))
             tensor_list.tensors.append(tensor_data)
           proto_inference_state.tensor_list_data[k].CopyFrom(tensor_list)
