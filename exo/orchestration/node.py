@@ -593,10 +593,11 @@ class Node:
         continue
 
       try:
-        # AI Native Fix: Increased timeout from 5.0s to 30.0s for large models (70B+)
-        # 5s timeout insufficient for 80-layer distributed coordination across nodes
-        # See: research/thor_uma/topology_timeout_fix.md
-        other_topology = await asyncio.wait_for(peer.collect_topology(visited, max_depth=max_depth - 1), timeout=30.0)
+        # Agent 26 Fix: Increased timeout from 30.0s to 120.0s for distributed inference
+        # Previous 30s timeout still insufficient for first inference request
+        # Large model downloads during lazy topology initialization can exceed 30s
+        # 120s allows adequate time for model pulls and peer coordination
+        other_topology = await asyncio.wait_for(peer.collect_topology(visited, max_depth=max_depth - 1), timeout=120.0)
         if DEBUG >= 2: print(f"Collected topology from: {peer.id()}: {other_topology}")
         next_topology.merge(peer.id(), other_topology)
       except Exception as e:
