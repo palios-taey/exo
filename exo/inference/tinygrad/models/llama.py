@@ -66,12 +66,20 @@ class Attention:
     self.wo = linear(self.n_heads*self.head_dim, dim, bias=False)
 
   def __call__(self, x: Tensor, start_pos: Union[Variable, int], freqs_cis: Tensor, mask: Optional[Tensor], cache: Optional[Tensor]=None) -> Tensor:
+    # AGENT 10: Runtime tensor debugging for autoregressive bug
+    print(f"[ATTN DEBUG] ENTER: x.shape={x.shape}, start_pos={start_pos}, cache={'exists' if cache is not None else 'None'}", flush=True)
+    print(f"[ATTN DEBUG] Config: n_heads={self.n_heads}, n_kv_heads={self.n_kv_heads}, head_dim={self.head_dim}, n_rep={self.n_rep}", flush=True)
+
     if getenv("WQKV"):
       if not hasattr(self, 'wqkv'): self.wqkv = Tensor.cat(self.wq.weight, self.wk.weight, self.wv.weight)
       xqkv = x @ self.wqkv.T
       xq, xk, xv = xqkv.split([self.wq.weight.shape[0], self.wk.weight.shape[0], self.wv.weight.shape[0]], dim=2)
     else:
       xq, xk, xv = self.wq(x), self.wk(x), self.wv(x)
+
+    print(f"[ATTN DEBUG] Linear outputs: xq.shape={xq.shape}, xk.shape={xk.shape}, xv.shape={xv.shape}", flush=True)
+    print(f"[ATTN DEBUG] Expected xq reshape: ({xq.shape[0]}, {xq.shape[1]}, {self.n_heads}, {self.head_dim})", flush=True)
+    print(f"[ATTN DEBUG] xq.numel()={xq.shape[0] * xq.shape[1] * (xq.shape[2] if len(xq.shape) > 2 else 1)}, expected_numel={xq.shape[0] * xq.shape[1] * self.n_heads * self.head_dim}", flush=True)
 
     xq = xq.reshape(xq.shape[0], xq.shape[1], self.n_heads, self.head_dim)
     xk = xk.reshape(xk.shape[0], xk.shape[1], self.n_kv_heads, self.head_dim)
@@ -262,7 +270,19 @@ class TransformerShard:
     # During generation, each shard needs to embed token IDs locally for subsequent tokens
     # Root cause: After first token generation, non-first shards receive token_id (not activations)
     # and must embed it before processing through their layers. Original conditional prevented this.
-    self.embed = lambda x: self.tok_embeddings(x)
+    #
+    # AGENT 10 FIX: Conditional embedding based on input shape
+    # - If 2D (batch, seq): Token IDs → embed to (batch, seq, dim)
+    # - If 3D (batch, seq, dim): Activations → pass through unchanged
+    # Prevents double-embedding of activations received from peer nodes during distributed inference
+    def _embed_conditional(x):
+        if len(x.shape) == 2:
+            # Token IDs: (batch, seq_len) → embed to (batch, seq_len, dim)
+            return self.tok_embeddings(x)
+        else:
+            # Activations: (batch, seq_len, dim) → pass through unchanged
+            return x
+    self.embed = _embed_conditional
     self.output = base.output
     self.post = (lambda x: self.output(x)) if shard.is_last_layer() else (lambda x: x)
     self.max_context = base.max_context
