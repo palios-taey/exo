@@ -366,7 +366,7 @@ class TinygradDynamicShardInferenceEngine(InferenceEngine):
       h = self.model.embed(x)
 
       # Return as numpy array for network transmission
-      return h.numpy()
+      return h.numpy() if hasattr(h, 'numpy') else h
 
     return await asyncio.get_running_loop().run_in_executor(self.executor, wrap_embed)
 
@@ -401,7 +401,7 @@ class TinygradDynamicShardInferenceEngine(InferenceEngine):
       state = self.poll_state(h, request_id, distributed_start_pos=distributed_start_pos, distributed_cache=distributed_cache)
       out = self.model.forward(h, **state)
       self.states[request_id].start += x.shape[1]
-      return out.numpy()
+      return out.numpy() if hasattr(out, 'numpy') else out
     output_data = await asyncio.get_running_loop().run_in_executor(self.executor, wrap_infer)
 
     # Export updated start_pos and cache to distributed state
@@ -420,7 +420,7 @@ class TinygradDynamicShardInferenceEngine(InferenceEngine):
       return self.session['loss'](self.model, x, y, l)
     await self.ensure_shard(shard)
     score = await asyncio.get_running_loop().run_in_executor(self.executor, lambda: self.session['jit'](Tensor(inputs), targets, lengths))
-    out = score.numpy()
+    out = score.numpy() if hasattr(score, 'numpy') else score
     return out
   
   async def train(self, request_id: str, shard: Shard, inputs, targets, lengths, loss=length_masked_ce_loss, opt=nn.optim.Adam, lr=1e-5):
@@ -432,10 +432,11 @@ class TinygradDynamicShardInferenceEngine(InferenceEngine):
       self.session['opt'].step()
       return score
     await self.ensure_shard(shard)
-      
+
     score = await asyncio.get_running_loop().run_in_executor(self.executor, lambda: self.session['jit'](Tensor(inputs), targets, lengths).realize())
-    
-    return loss.numpy(), loss.numpy()
+
+    loss_np = score.numpy() if hasattr(score, 'numpy') else score
+    return loss_np, loss_np
 
   async def ensure_shard(self, shard: Shard):
     # Check class-level cache first for INSTANT warm starts
