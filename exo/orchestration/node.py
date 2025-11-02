@@ -138,7 +138,8 @@ class Node:
         # EDISON-2 FIX: Embed token before forwarding to peer device
         # Problem: Raw token_id forwarded causes type mismatch (int vs float activation)
         # Solution: Call embed_token() to convert token_id → embedded activation
-        token_np = token.reshape(1, -1).numpy()
+        token_reshaped = token.reshape(1, -1)
+        token_np = token_reshaped.numpy() if hasattr(token_reshaped, 'numpy') else token_reshaped
         forward = await self.inference_engine.embed_token(shard, token_np)
 
         intermediate_result = [self.buffered_token_output[request_id][0][-1]]
