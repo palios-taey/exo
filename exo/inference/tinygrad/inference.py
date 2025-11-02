@@ -328,7 +328,8 @@ class TinygradDynamicShardInferenceEngine(InferenceEngine):
   async def sample(self, x: np.ndarray, temp=TEMPERATURE, top_p: float = 0.0) -> np.ndarray:
     def sample_wrapper():
       logits = x[:, -1, :]
-      return sample_logits(Tensor(logits).flatten(), temp, 0, 0.8, top_p, 0.0).realize().numpy().astype(int)
+      result = sample_logits(Tensor(logits).flatten(), temp, 0, 0.8, top_p, 0.0).realize()
+      return result.numpy().astype(int) if hasattr(result, 'numpy') else result.astype(int)
     return await asyncio.get_running_loop().run_in_executor(self.executor, sample_wrapper)
 
   async def encode(self, shard: Shard, prompt: str) -> np.ndarray:
