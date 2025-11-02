@@ -179,7 +179,8 @@ class GRPCPeerHandle(PeerHandle):
   async def collect_topology(self, visited: set[str], max_depth: int) -> Topology:
     await self._ensure_connected()
     request = node_service_pb2.CollectTopologyRequest(visited=visited, max_depth=max_depth)
-    response = await self.stub.CollectTopology(request)
+    # Agent 26: Add 120s timeout for gRPC call to allow model downloads during topology collection
+    response = await self.stub.CollectTopology(request, timeout=120.0)
     topology = Topology()
     for node_id, capabilities in response.nodes.items():
       device_capabilities = DeviceCapabilities(
