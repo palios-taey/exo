@@ -593,11 +593,11 @@ class Node:
         continue
 
       try:
-        # Agent 26 Fix: Increased timeout from 30.0s to 120.0s for distributed inference
-        # Previous 30s timeout still insufficient for first inference request
-        # Large model downloads during lazy topology initialization can exceed 30s
-        # 120s allows adequate time for model pulls and peer coordination
-        other_topology = await asyncio.wait_for(peer.collect_topology(visited, max_depth=max_depth - 1), timeout=120.0)
+        # Agent 26 Fix: Increased timeout from 30.0s to 300.0s for distributed inference
+        # Previous 120s still insufficient - model download during lazy init takes longer
+        # llama-3.1-8b download: 292 weight files, can exceed 120s on first request
+        # 300s (5min) allows adequate time for full model download + topology coordination
+        other_topology = await asyncio.wait_for(peer.collect_topology(visited, max_depth=max_depth - 1), timeout=300.0)
         if DEBUG >= 2: print(f"Collected topology from: {peer.id()}: {other_topology}")
         next_topology.merge(peer.id(), other_topology)
       except Exception as e:
