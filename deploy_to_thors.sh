@@ -16,7 +16,8 @@ THOR2_USER="thor"
 THOR2_HOST="10.0.0.78"
 THOR2_PATH="/home/thor/exo-clean"
 
-GITHUB_REPO="git@github.com:palios-taey/exo.git"
+GITHUB_REPO_SSH="git@github.com:palios-taey/exo.git"
+GITHUB_REPO_HTTPS="https://github.com/palios-taey/exo.git"
 
 LOG_FILE="/tmp/deploy_$(date +%Y%m%d_%H%M%S).log"
 
@@ -82,7 +83,8 @@ set -e
 
 THOR1_PATH="/home/jetson/exo-clean"
 BRANCH="thor-compatibility-2025-11-02"
-GITHUB_REPO="git@github.com:palios-taey/exo.git"
+GITHUB_REPO_SSH="git@github.com:palios-taey/exo.git"
+GITHUB_REPO_HTTPS="https://github.com/palios-taey/exo.git"
 
 if [[ -d "$THOR1_PATH/.git" ]]; then
     echo "Git repo exists, pulling latest..."
@@ -105,7 +107,7 @@ else
         mv "$THOR1_PATH" "${THOR1_PATH}.backup.$(date +%s)"
     fi
 
-    git clone -b "$BRANCH" "$GITHUB_REPO" "$THOR1_PATH"
+    git clone -b "$BRANCH" "$GITHUB_REPO_HTTPS" "$THOR1_PATH"
     cd "$THOR1_PATH"
 fi
 
@@ -124,7 +126,8 @@ set -e
 
 THOR2_PATH="/home/thor/exo-clean"
 BRANCH="thor-compatibility-2025-11-02"
-GITHUB_REPO="git@github.com:palios-taey/exo.git"
+GITHUB_REPO_SSH="git@github.com:palios-taey/exo.git"
+GITHUB_REPO_HTTPS="https://github.com/palios-taey/exo.git"
 
 if [[ -d "$THOR2_PATH/.git" ]]; then
     echo "Git repo exists, pulling latest..."
@@ -144,7 +147,7 @@ else
         mv "$THOR2_PATH" "${THOR2_PATH}.backup.$(date +%s)"
     fi
 
-    git clone -b "$BRANCH" "$GITHUB_REPO" "$THOR2_PATH"
+    git clone -b "$BRANCH" "$GITHUB_REPO_HTTPS" "$THOR2_PATH"
     cd "$THOR2_PATH"
 fi
 
