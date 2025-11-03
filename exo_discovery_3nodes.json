@@ -1,0 +1,46 @@
+{
+  "peers": {
+    "mira": {
+      "address": "10.0.0.163",
+      "port": 50051,
+      "device_capabilities": {
+        "model": "RTX4090",
+        "chip": "Ada",
+        "memory": 24000000000,
+        "flops": {
+          "fp32": 82580000000000,
+          "fp16": 165200000000000,
+          "int8": 330400000000000
+        }
+      }
+    },
+    "thor1": {
+      "address": "10.0.0.93",
+      "port": 50051,
+      "device_capabilities": {
+        "model": "Thor",
+        "chip": "Blackwell",
+        "memory": 128000000000,
+        "flops": {
+          "fp32": 100000000000000,
+          "fp16": 200000000000000,
+          "int8": 400000000000000
+        }
+      }
+    },
+    "thor2": {
+      "address": "10.0.0.78",
+      "port": 50051,
+      "device_capabilities": {
+        "model": "Thor",
+        "chip": "Blackwell",
+        "memory": 128000000000,
+        "flops": {
+          "fp32": 100000000000000,
+          "fp16": 200000000000000,
+          "int8": 400000000000000
+        }
+      }
+    }
+  }
+}

@@ -17,8 +17,8 @@ DISCOVERY_MODULE="manual"
 THOR1_PEER="10.0.0.93:50051"
 THOR2_PEER="10.0.0.78:50051"
 
-# Discovery config file path
-DISCOVERY_CONFIG="/tmp/exo_discovery_mira.json"
+# Discovery config file path (shared across all nodes)
+DISCOVERY_CONFIG="/tmp/exo_discovery_3nodes.json"
 
 echo "=========================================="
 echo "EXO DISTRIBUTED INFERENCE - MIRA NODE"
@@ -28,19 +28,9 @@ echo "Host: $NODE_HOST"
 echo "Port: $NODE_PORT"
 echo "ChatGPT API: http://10.0.0.163:$CHATGPT_PORT"
 echo "Discovery: $DISCOVERY_MODULE"
-echo "Peers: $THOR1_PEER, $THOR2_PEER"
+echo "Config: $DISCOVERY_CONFIG"
 echo "Environment: CUDA=$CUDA, DEVICE=$DEVICE"
 echo "=========================================="
-
-# Create manual discovery config
-cat > $DISCOVERY_CONFIG << EOF
-{
-  "peers": [
-    {"host": "10.0.0.93", "port": 50051, "device_capabilities": {"model": "Thor", "memory": "128GB"}},
-    {"host": "10.0.0.78", "port": 50051, "device_capabilities": {"model": "Thor", "memory": "128GB"}}
-  ]
-}
-EOF
 
 echo "Starting Mira node..."
 
