@@ -2,9 +2,9 @@
 
 **Import Root Context**: @/home/mira/CLAUDE.md
 
-**Status**: PREPARING FOR CLEAN FORK - DISTRIBUTED INFERENCE GOAL
-**Last Updated**: 2025-11-02
-**Current Objective**: Distributed inference of Llama 3.3 70B across Thor #1 + Thor #2
+**Status**: EDISON CYCLE 2 COMPLETE - READY FOR DISTRIBUTED TESTING
+**Last Updated**: 2025-11-03
+**Current Objective**: Apply UMA/CUDA fixes, test distributed Llama 3.3 70B (Mira + Thor #1 + Thor #2)
 
 **Current Priority**:
 1. Create clean forks from upstream (exo-explore/exo, tinygrad/tinygrad)
@@ -64,36 +64,36 @@
 
 ---
 
-## 3. GIT WORKFLOW - MIRA COMMITS ONLY
+## 3. GIT AUTOMATED DEPLOYMENT (USE THIS - NO MANUAL SSH)
 
-**CRITICAL RULE**: Only Mira commits to repos. Thors pull changes via patches.
+**RULE 0: AUTOMATED DEPLOYMENT ONLY**
 
-**Prevents**:
-- Diverged commit hashes across machines
-- Merge conflicts between local edits
-- Lost work when syncing
+**Making Changes**:
+1. Work in `/home/mira/exo` on branch `thor-compatibility-2025-11-02`
+2. Make code changes
+3. Run: `./deploy_to_thors.sh "commit message"`
+4. Script automatically commits, pushes to GitHub, deploys to both Thors
+5. Verify: "✅ SUCCESS" message and matching commit hashes
 
-**Process**:
-```bash
-# On Mira: Create feature branch
-cd /home/mira/exo
-git checkout -b thor-compatibility-2025-11-02
+**What the Script Does**:
+- Commits all changes on Mira
+- Pushes to `palios-taey/exo` on GitHub
+- Initializes or updates git repos on Thor #1 and Thor #2 (via HTTPS clone/pull)
+- Verifies all 3 nodes have identical commit hash
+- Fails fast if any step errors
 
-# Make changes, test locally if possible
-git add <files>
-git commit -m "Commit message with Problem/Solution/Testing/Impact"
+**DO NOT**:
+- ❌ SSH to Thors manually
+- ❌ Run git commands on Thors directly
+- ❌ Use manual patches or rsync
+- ❌ Make changes outside deployment script
 
-# Generate patches for Thor deployment
-git diff main > /tmp/exo-patches.diff
-git format-patch main -o /tmp/exo-patches/
+**Troubleshooting**:
+- Check deployment log: `/tmp/deploy_TIMESTAMP.log`
+- If failure: Script shows which step failed
+- Rollback: Thors remain on previous commit if deployment fails
 
-# On each Thor: Apply patches
-scp /tmp/exo-patches.diff thor@10.0.0.78:/tmp/
-ssh thor@10.0.0.78 'cd /home/thor/exo && git apply /tmp/exo-patches.diff'
-
-# Verify
-ssh thor@10.0.0.78 'cd /home/thor/exo && git status'
-```
+**Location**: `/home/mira/exo/deploy_to_thors.sh`
 
 **Commit Message Format**:
 ```
@@ -118,7 +118,29 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ---
 
-## 4. DISTRIBUTED INFERENCE TESTING PHASES
+## 4. DEPLOYMENT STATUS (EDISON CYCLES)
+
+**Edison Cycle 1** (Complete):
+- ✅ Identified protobuf version mismatch blocker
+- ✅ Root cause: Upstream committed stale gencode (5.27.2)
+- ❌ Single-device testing led to false patches (per Jesse's feedback)
+
+**Edison Cycle 2** (Complete - 2025-11-03):
+- ✅ Git automation deployment system working
+- ✅ Protobuf compatibility fix deployed to all 3 nodes
+- ✅ Import test passes on all nodes: `from exo.networking.grpc import grpc_server`
+- ✅ All 3 nodes synchronized at commit `02bb388`
+- ✅ Tagged milestone: `v0.2-edison-cycle2-complete`
+- ⚠️ Known: Thor #1 shows gencode version warning (non-blocking)
+
+**Edison Cycle 3** (Next):
+- Apply UMA + CUDA=1 fixes from `/home/mira/exo/research/PERPLEXITY_CORE_FIXES.md`
+- Configure 3-node distributed inference (Mira RTX 4090 + Thor #1 + Thor #2)
+- Test Llama 3.3 70B distributed (NO single-device tests)
+
+---
+
+## 5. DISTRIBUTED INFERENCE TESTING PHASES
 
 **Phase 1: Foundation (Week 1)**
 - Clean fork from upstream
@@ -139,7 +161,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ---
 
-## 5. CURRENT TECHNICAL NOTES
+## 6. CURRENT TECHNICAL NOTES
 
 **Architecture Understanding**:
 - Exo: Distributed inference framework (tinygrad-based)
@@ -160,7 +182,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ---
 
-## 6. REFERENCE
+## 7. REFERENCE
 
 **Root Context**: `/home/mira/CLAUDE.md`
 **Network Status**: Both Thors operational, 43.6 Gbps stable
