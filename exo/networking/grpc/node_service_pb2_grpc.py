@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from . from . import node_service_pb2 as node__service__pb2
+from . import node_service_pb2 as node__service__pb2
 
 GRPC_GENERATED_VERSION = '1.67.0'
 GRPC_VERSION = grpc.__version__
