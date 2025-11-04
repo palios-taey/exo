@@ -8,6 +8,7 @@ from exo.helpers import DEBUG
 from exo.download.hf.hf_helpers import get_allow_patterns
 from fnmatch import fnmatch
 import re
+import torch
 
 
 # **** helper functions ****
@@ -57,6 +58,9 @@ def load(fn: str, shard: Shard):
         tensor_data = f.get_tensor(k)
         # Convert PyTorch tensor to numpy for tinygrad compatibility
         if hasattr(tensor_data, 'numpy'):
+          # Convert bfloat16 to float32 BEFORE numpy conversion (bfloat16 not supported by numpy)
+          if hasattr(tensor_data, 'dtype') and tensor_data.dtype == torch.bfloat16:
+            tensor_data = tensor_data.to(torch.float32)
           tensor_data = tensor_data.numpy()
         weight_map[k] = Tensor(tensor_data)
 
