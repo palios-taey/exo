@@ -47,7 +47,7 @@ def load(fn: str, shard: Shard):
     from safetensors import safe_open
     weight_map = {}
 
-    with safe_open(fn, framework="numpy") as f:
+    with safe_open(fn, framework="pt") as f:
       for k in f.keys():
         # Filter during iteration - skip layers outside shard range
         if (n := re.search(r"\.(\d+)\.", k)) and not (shard.start_layer <= int(n.group(1)) <= shard.end_layer):
@@ -55,6 +55,9 @@ def load(fn: str, shard: Shard):
 
         # Only load tensors we actually need
         tensor_data = f.get_tensor(k)
+        # Convert PyTorch tensor to numpy for tinygrad compatibility
+        if hasattr(tensor_data, 'numpy'):
+          tensor_data = tensor_data.numpy()
         weight_map[k] = Tensor(tensor_data)
 
     return weight_map
