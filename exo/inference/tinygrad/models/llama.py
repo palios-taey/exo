@@ -246,7 +246,15 @@ class TransformerShard:
     self.layers = [layer for layer, n in zip(base.layers, range(shard.n_layers)) if n in shardrange]
     self.norm = base.norm 
     self.tok_embeddings = base.tok_embeddings
-    self.embed = (lambda x: self.tok_embeddings(x)) if shard.is_first_layer() else (lambda x: x)
+    # Conditional embedding based on tensor shape (not shard position)
+    # - 2D tensor (batch, seq_len): Token IDs → embed via tok_embeddings
+    # - 3D tensor (batch, seq_len, hidden): Activations from peer → pass through
+    def _embed_conditional(x):
+      if len(x.shape) == 2:
+        return self.tok_embeddings(x)  # Token IDs
+      else:
+        return x  # Peer activations (pass through)
+    self.embed = _embed_conditional
     self.output = base.output
     self.post = (lambda x: self.output(x)) if shard.is_last_layer() else (lambda x: x)
     self.max_context = base.max_context
