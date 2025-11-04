@@ -43,10 +43,20 @@ def load(fn: str, shard: Shard):
     if DEBUG >= 2: print(f"Excluded model param keys for {shard=}: {sorted(set(weight_map.keys()) - set(filtered_weight_map.keys()))}")
     return {k: parts[n][k] for k, n in filtered_weight_map.items()}
   elif fn.endswith(".safetensors"):
-    weight_map = safe_load(fn)
-    for k in list(weight_map):
-      if (n := re.search(r"\.(\d+)\.", k)) and not (shard.start_layer <= int(n.group(1)) <= shard.end_layer):
-          del weight_map[k]
+    # Lazy loading: only load tensors for this shard's layers
+    from safetensors import safe_open
+    weight_map = {}
+
+    with safe_open(fn, framework="numpy") as f:
+      for k in f.keys():
+        # Filter during iteration - skip layers outside shard range
+        if (n := re.search(r"\.(\d+)\.", k)) and not (shard.start_layer <= int(n.group(1)) <= shard.end_layer):
+          continue  # Don't load this tensor at all
+
+        # Only load tensors we actually need
+        tensor_data = f.get_tensor(k)
+        weight_map[k] = Tensor(tensor_data)
+
     return weight_map
   else:
     return torch_load(fn)
